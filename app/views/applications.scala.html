@@ -1,0 +1,103 @@
+@(role: String, p: models.ApplicationsPage)(implicit request: Http.Request)
+
+@main("Applications | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "applications")
+
+      @if(role == "RENTER") {
+
+        <h1 class="dash-title">Your applications</h1>
+        <p class="dash-sub">Keep track of every next step.</p>
+
+        <div class="dash-card">
+          <b>Your bookings and move-in</b>
+          @if(!p.bookingsLoaded) {
+            <p class="dash-muted">Bookings unavailable.</p>
+          } else if(p.bookings.isEmpty()) {
+          <p class="dash-muted">No bookings yet.</p>
+          } else {
+          @for(booking <- p.bookings) {
+            <div class="bk-row">
+              <b>@booking.who</b>
+              <p class="dash-muted">@booking.kind · @booking.status · @booking.total</p>
+            </div>
+          }
+          }
+        </div>
+
+        @if(!p.loaded) {
+          <p class="dash-muted">Applications unavailable. Refresh the page to try again.</p>
+        } else if(p.rows.isEmpty()) {
+        <p class="dash-muted">No applications yet.</p>
+        } else {
+        @for(row <- p.rows) {
+          <div class="dash-card app-card">
+            <b>@row.title</b>
+            <p class="st @row.statusClass">@row.status</p>
+            <p class="dash-muted">Submitted @row.submitted</p>
+            @if(row.reason != null) {
+              <p class="dash-muted">Reason: @row.reason</p>
+            }
+          </div>
+        }
+        @if(p.hasMore) {
+          <p><a class="btn ghost sm" href="/dashboard/applications?show=@p.nextShow">Show more applications</a></p>
+        }
+        }
+
+      } else {
+
+        <h1 class="dash-title">People interested in your @if(role == "LANDLORD") {home} else {shared home}</h1>
+        <p class="dash-sub">Review applications for your own listings.</p>
+
+        @if(!p.loaded) {
+          <div class="dash-card">
+            <b>Application details are unavailable.</b>
+            <p class="dash-muted">Refresh the page to try again.</p>
+          </div>
+        } else {
+          <p class="dash-muted">New @p.fresh · Under review @p.underReview · Approved @p.approved</p>
+
+          <p>
+            @if(p.hiddenView) {
+              <a class="btn ghost sm" href="/dashboard/applications">Show applications</a>
+            } else {
+              <a class="btn ghost sm" href="/dashboard/applications?hidden=true">Hidden applications (@p.hiddenCount)</a>
+            }
+          </p>
+
+          @if(p.rows.isEmpty()) {
+            <p class="dash-muted">@if(p.hiddenView) {No hidden applications.} else {No applications to show.}</p>
+          }
+
+          @for(row <- p.rows) {
+            <div class="dash-card app-card">
+              <div class="app-head">
+                <div>
+                  <b>@row.applicant</b>
+                  @if(row.verified) {<span class="app-ver">✓ Verified renter</span>}
+                </div>
+                <span class="app-listing">@row.title</span>
+              </div>
+              <p class="st @row.statusClass">@row.status</p>
+              <p class="dash-muted">Submitted @row.submitted</p>
+              @if(row.reason != null) {
+                <p class="dash-muted">Reason: @row.reason</p>
+              }
+            </div>
+          }
+
+          @if(p.hasMore) {
+            <p><a class="btn ghost sm" href="/dashboard/applications?hidden=@p.hiddenView&show=@p.nextShow">Show more applications</a></p>
+          }
+        }
+
+      }
+
+    </div>
+  </section>
+
+}

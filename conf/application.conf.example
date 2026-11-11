@@ -1,0 +1,5 @@
+# Copy to application.conf for local development. Keep real values out of Git.
+makao.api.baseUrl = "http://localhost:8080"
+makao.api.baseUrl = ${?MAKAO_API_BASE_URL}
+makao.support.whatsapp = ${?MAKAO_SUPPORT_WHATSAPP}
+play.http.parser.maxDiskBuffer = 104857600

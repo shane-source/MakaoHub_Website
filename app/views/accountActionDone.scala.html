@@ -1,0 +1,19 @@
+@(action: String)
+
+@title = @{ if(action == "delete") "Deletion request received" else "Account deactivated" }
+
+@main(title + " | Makao Hub") {
+
+  <section class="legal">
+    <h1>@title</h1>
+
+    @if(action == "delete") {
+      <p>A verified deletion request disables sign-in pending staff review. It does not cancel a booking, refund a payment or erase records automatically.</p>
+    } else {
+      <p>Account deactivated. Sign in and confirm reactivation when you are ready.</p>
+    }
+
+    <p class="legal-back"><a href="/get-started?mode=login">Go to sign in</a></p>
+  </section>
+
+}

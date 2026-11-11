@@ -1,0 +1,44 @@
+@(role: String, view: controllers.HelpController.HelpView)(implicit request: Http.Request)
+
+@main("Help and support | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "profile")
+
+      <p class="hp-back"><a href="/dashboard/profile">&larr; Profile</a></p>
+
+      <h1 class="hp-title">Help and support</h1>
+      <p class="hp-sub">Talk to the Makao Hub team on WhatsApp. Choose a topic and we'll start the chat for you.</p>
+
+      @if(!view.configured()) {
+        <p class="form-error" role="status">WhatsApp support isn't set up yet. Please check back soon.</p>
+      } else {
+        <a class="btn block hp-main" href="@view.chatUrl()" target="_blank" rel="noopener noreferrer">
+          <span class="hp-main-ico">@icon("whatsapp")</span> Chat with support on WhatsApp
+        </a>
+        <p class="hp-number">Support number: @view.number()</p>
+
+        <p class="pf-label">CHOOSE A TOPIC</p>
+        <div class="pf-list">
+          @for(topic <- view.topics()) {
+            <a class="pf-row" href="@topic.url()" target="_blank" rel="noopener noreferrer">
+              <span class="pf-ico">@icon("whatsapp")</span>
+              <span class="pf-text">@topic.label()<small class="hp-note">@topic.note()</small></span>
+              <span class="pf-chev">@icon("chevron")</span>
+            </a>
+          }
+        </div>
+      }
+
+      <p class="pf-label">STAY SAFE</p>
+      <div class="hp-safe">
+        <p>Support will never ask for your password or the 6-digit code we email you. Don't share them with anyone.</p>
+        <p>Use WhatsApp only to reach Makao Hub support. Talk to renters, landlords and roommates inside Messages, where chats are protected.</p>
+      </div>
+
+    </div>
+  </section>
+
+}

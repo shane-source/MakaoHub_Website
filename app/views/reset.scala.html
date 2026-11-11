@@ -1,0 +1,49 @@
+@(email: String, error: String, notice: String)(implicit request: Http.Request)
+
+@main("Set a new password | Makao Hub") {
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="@routes.Assets.versioned("images/photo3.jpg")" alt="A spacious open-plan living room">
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-box">
+        <h1>Set a new password</h1>
+        <p class="lead">Enter the 6-digit code sent to <b>@email</b> and choose a new password.</p>
+
+        @if(notice.nonEmpty) {
+          <p class="form-note" role="status">@notice</p>
+        }
+        @if(error.nonEmpty) {
+          <p class="form-error" role="alert">@error</p>
+        }
+
+        <form class="form" action="/reset" method="post">
+          @helper.CSRF.formField
+
+          <div class="form-row">
+            <label for="code">Verification code</label>
+            <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9][0-9][0-9][0-9][0-9][0-9]" title="Enter the 6-digit code" required autofocus>
+          </div>
+
+          <div class="form-row">
+            <label for="password">New password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+            <p class="help">8 to 72 characters, with a letter and a number.</p>
+          </div>
+
+          <div class="form-row">
+            <label for="confirmPassword">Confirm new password</label>
+            <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+          </div>
+
+          <button class="btn block" type="submit">Update password</button>
+        </form>
+
+        <p class="switch">Wrong email? <a href="/forgot">Start again</a></p>
+      </div>
+    </div>
+  </section>
+
+}

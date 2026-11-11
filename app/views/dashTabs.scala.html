@@ -1,0 +1,13 @@
+@(role: String, active: String)
+
+<nav class="dash-tabs" aria-label="Dashboard">
+  <a class="@(if(active == "home") "on" else "")" href="/dashboard">Home</a>
+  @if(role == "RENTER") {
+    <a class="@(if(active == "saved") "on" else "")" href="/dashboard/saved">Saved</a>
+  } else {
+    <a class="@(if(active == "listings") "on" else "")" href="/dashboard/listings">Listings</a>
+  }
+  <a class="@(if(active == "applications") "on" else "")" href="/dashboard/applications">Applications</a>
+  <a class="@(if(active == "messages") "on" else "")" href="/dashboard/messages">Messages</a>
+  <a class="@(if(active == "profile") "on" else "")" href="/dashboard/profile">Profile</a>
+</nav>

@@ -1,0 +1,47 @@
+@(role: String, view: controllers.NotificationsController.NotificationsView)(implicit request: Http.Request)
+
+@main("Notifications | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "notifications")
+
+      @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your notifications. Refresh the page to try again.</p>
+      }
+
+      <h1 class="dash-title">Notifications</h1>
+      <p class="dash-sub">@if(view.unread() > 0) {@view.unread() unread} else {You're all caught up}</p>
+
+      @if(view.items().isEmpty() && !view.loadFailed()) {
+        <div class="dash-card">
+          <b>Nothing here yet.</b>
+          <p class="dash-muted">Updates about your listings, applications and payments will show up here.</p>
+        </div>
+      }
+
+      @if(!view.items().isEmpty()) {
+        <div class="nt-list">
+          @for(note <- view.items()) {
+            <div class="nt @if(note.unread()) {is-unread}">
+              <span class="nt-dot" aria-hidden="true"></span>
+              <div>
+                <b>@note.title()</b>
+                @if(!note.message().isEmpty()) {<p>@note.message()</p>}
+              </div>
+              @if(note.unread() && !note.id().isEmpty()) {
+                <form class="nt-form" action="/dashboard/notifications/@note.id()/read" method="post">
+                  @helper.CSRF.formField
+                  <button class="nt-read" type="submit">Mark as read</button>
+                </form>
+              }
+            </div>
+          }
+        </div>
+      }
+
+    </div>
+  </section>
+
+}

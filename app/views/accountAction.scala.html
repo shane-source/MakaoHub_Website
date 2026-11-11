@@ -1,0 +1,64 @@
+@(role: String, action: String, waiting: Boolean, masked: String, error: String)(implicit request: Http.Request)
+
+@title = @{ if(action == "delete") "Delete account" else "Deactivate account" }
+
+@main(title + " | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "profile")
+
+      <p class="ac-back"><a href="/dashboard/privacy">&larr; Privacy and account</a></p>
+
+      <h1 class="dash-title">@title</h1>
+
+      @if(error == "sendfailed") {
+        <p class="form-error" role="alert">We couldn't send your code. Please try again, or contact support.</p>
+      }
+      @if(error == "badcode") {
+        <p class="form-error" role="alert">That code isn't right or has expired. Check it and try again.</p>
+      }
+      @if(error == "agree") {
+        <p class="form-error" role="alert">Please tick the box to continue.</p>
+      }
+
+      <p class="ac-note">
+        @if(action == "delete") {
+          A verified deletion request disables sign-in pending staff review. It does not cancel a booking, refund a payment or erase records automatically.
+        } else {
+          An email code will confirm deactivation. To reactivate, sign in and confirm reactivation with another email code.
+        }
+      </p>
+
+      @if(!waiting) {
+        <form class="form ac-form" action="/dashboard/account/@action/start" method="post">
+          @helper.CSRF.formField
+          @if(action == "delete") {
+            <label class="ac-check"><input type="checkbox" name="agree" value="yes" required> I understand and want to request deletion of my account.</label>
+          }
+          <button class="btn block @if(action == "delete") {ac-danger}" type="submit">Send code to my email</button>
+        </form>
+      } else {
+        <p class="ac-note">We sent a code to @if(masked.isEmpty()) {your email} else {<b>@masked</b>}.</p>
+
+        <form class="form ac-form" action="/dashboard/account/@action/confirm" method="post">
+          @helper.CSRF.formField
+          <label for="code">Email code</label>
+          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required>
+          <button class="btn block @if(action == "delete") {ac-danger}" type="submit">
+            @if(action == "delete") {Confirm deletion request} else {Confirm deactivation}
+          </button>
+        </form>
+
+        <form class="ac-resend" action="/dashboard/account/@action/start" method="post">
+          @helper.CSRF.formField
+          <input type="hidden" name="agree" value="yes">
+          <button type="submit">Send a new code</button>
+        </form>
+      }
+
+    </div>
+  </section>
+
+}

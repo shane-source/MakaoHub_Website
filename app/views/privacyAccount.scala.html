@@ -1,0 +1,40 @@
+@(role: String)(implicit request: Http.Request)
+
+@main("Privacy and account | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "profile")
+
+      <p class="pv-back"><a href="/dashboard/profile">&larr; Profile</a></p>
+
+      <h1 class="dash-title">Privacy and account</h1>
+      <p class="dash-sub">Your data, your account, and the rules for using Makao Hub.</p>
+
+      <p class="legal-draft" role="note">Draft. This text is a placeholder and is not yet final.</p>
+
+      <h2 class="dash-h2">Privacy Policy</h2>
+      <div class="dash-card pv-text">@legalPrivacy()</div>
+
+      <h2 class="dash-h2">Terms and Conditions</h2>
+      <div class="dash-card pv-text">@legalTerms()</div>
+
+      <h2 class="dash-h2">Your account</h2>
+      <div class="pf-list">
+        <a class="pf-row" href="/dashboard/account/deactivate">
+          <span class="pf-ico">@icon("shield")</span>
+          <span class="pf-text">Deactivate account</span>
+          <span class="pf-chev">@icon("chevron")</span>
+        </a>
+        <a class="pf-row" href="/dashboard/account/delete">
+          <span class="pf-ico">@icon("shield")</span>
+          <span class="pf-text">Delete account</span>
+          <span class="pf-chev">@icon("chevron")</span>
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+}

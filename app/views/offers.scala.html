@@ -1,0 +1,122 @@
+@(role: String, p: models.OffersPage)(implicit request: Http.Request)
+
+@main((if(p.boostMode) "Boost" else "Plans") + " | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "profile")
+
+      <p class="chat-back"><a href="/dashboard/profile">&larr; Profile</a></p>
+
+      @if(p.error.nonEmpty) {
+        <p class="form-error" role="alert">@p.error</p>
+      }
+      @if(p.notice.nonEmpty) {
+        <p class="form-note" role="status">@p.notice</p>
+      }
+
+      <h1 class="dash-title">@if(p.boostMode) {Give your home a boost} else {Compare plans}</h1>
+      <p class="dash-sub">Prepaid access · Paystack</p>
+
+      @if(!p.loaded) {
+        <div class="dash-card">
+          <b>Offers unavailable.</b>
+          <p class="dash-muted">We couldn't load them right now. Refresh the page to try again.</p>
+        </div>
+      }
+
+      @if(p.pending) {
+        <div class="dash-card">
+          <b>Payment pending</b>
+          <p class="dash-muted">Finish the payment on Paystack, then check it here. Do not pay again while this payment is pending.</p>
+          <form action="/dashboard/plans/check" method="post">
+            @helper.CSRF.formField
+            <button class="btn sm" type="submit">Check Paystack payment</button>
+          </form>
+        </div>
+      }
+
+      @if(p.loaded) {
+
+        @if(!p.boostMode) {
+
+          <div class="dash-card">
+            <b>Starter · Free</b>
+            <p class="dash-muted">1 active listing · protected chat · applications and bookings</p>
+            <p class="dash-muted">Your existing published listings stay visible if a paid plan expires.</p>
+          </div>
+
+          <p class="dash-muted">Your current allowance: @p.allowance active listings</p>
+          @for(line <- p.active) {
+            <p class="dash-muted">@line</p>
+          }
+
+          @if(!p.insights.isEmpty()) {
+            <div class="dash-card">
+              <b>Your listing insights</b>
+              @for(i <- p.insights) {
+                <p class="dash-muted">@i.title · @i.opens detail opens · @i.enquiries applications</p>
+              }
+              @if(p.portfolio.nonEmpty) {
+                <p class="dash-muted">@p.portfolio</p>
+              }
+            </div>
+          }
+
+          @if(p.offers.isEmpty()) {
+            <p class="dash-muted">No plans are available right now.</p>
+          }
+          @for(o <- p.offers) {
+            <div class="dash-card offer-card">
+              <b>@o.title</b>
+              <p class="offer-terms">@o.terms</p>
+              <p class="dash-muted">@o.detail</p>
+              <form action="/dashboard/plans/buy" method="post">
+                @helper.CSRF.formField
+                <input type="hidden" name="code" value="@o.code">
+                <button class="btn block" type="submit">Choose @o.title</button>
+              </form>
+            </div>
+          }
+
+        } else {
+
+          @if(p.listings.isEmpty()) {
+            <div class="dash-card">
+              <b>No published listings to boost.</b>
+              <p class="dash-muted">A listing must be published before it can be boosted.</p>
+            </div>
+          }
+
+          @for(l <- p.listings) {
+            <div class="dash-card">
+              <b>@l.title</b>
+              <p class="dash-muted">@l.rent</p>
+              @if(l.active.nonEmpty) {
+                <p class="st ok">@l.active</p>
+              }
+              @for(o <- l.options) {
+                <div class="offer-card">
+                  <p class="offer-terms">@o.title · @o.terms</p>
+                  <p class="dash-muted">@o.detail</p>
+                  <form action="/dashboard/plans/buy" method="post">
+                    @helper.CSRF.formField
+                    <input type="hidden" name="code" value="@o.code">
+                    <input type="hidden" name="listingId" value="@l.id">
+                    <button class="btn block" type="submit">Choose @o.title</button>
+                  </form>
+                </div>
+              }
+            </div>
+          }
+
+        }
+
+        <p><a class="btn ghost sm" href="/dashboard/bookings">View payment history</a></p>
+      }
+
+    </div>
+  </section>
+
+}

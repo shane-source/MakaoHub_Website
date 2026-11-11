@@ -1,0 +1,46 @@
+@(mode: String)
+
+@isLogin = @{ mode == "login" }
+
+@main(if(isLogin) "Sign in | Makao Hub" else "Choose your role | Makao Hub") {
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="@routes.Assets.versioned("images/photo3.jpg")" alt="A spacious open-plan living room">
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-box">
+        <h1>@(if(isLogin) "Sign in as" else "How will you use Makao Hub?")</h1>
+        <p class="lead">@(if(isLogin) "Choose the role you created your account with." else "Choose one role to begin. You can't select more than one.")</p>
+
+        <form class="form" action="@(if(isLogin) "/login" else "/register")" method="get">
+          <div class="role-pick" role="radiogroup" aria-label="Your role">
+            <label class="role-opt">
+              <input type="radio" name="role" value="RENTER" checked>
+              <span class="role-card"><b>Renter</b><span>Find a whole home or a shared space.</span></span>
+            </label>
+            <label class="role-opt">
+              <input type="radio" name="role" value="LANDLORD">
+              <span class="role-card"><b>Landlord</b><span>List whole properties or units and review applications.</span></span>
+            </label>
+            <label class="role-opt">
+              <input type="radio" name="role" value="SUBLESSOR">
+              <span class="role-card"><b>Sublessor</b><span>List a spare room or servant quarter and find roommates.</span></span>
+            </label>
+          </div>
+          <p class="hint">@(if(isLogin) "Pick the same role you registered with, or sign-in will be refused." else "Your role stays with your account. Switching later requires re-verification.")</p>
+
+          <button class="btn block" type="submit">Continue</button>
+        </form>
+
+        @if(isLogin) {
+          <p class="switch">New to Makao Hub? <a href="/get-started">Create an account</a></p>
+        } else {
+          <p class="switch">Already have an account? <a href="/get-started?mode=login">Sign in</a></p>
+        }
+      </div>
+    </div>
+  </section>
+
+}

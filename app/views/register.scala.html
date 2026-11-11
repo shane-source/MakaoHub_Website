@@ -1,0 +1,77 @@
+@(selected: String, label: String, error: String, fullName: String, email: String, phone: String)(implicit request: Http.Request)
+
+@main("Create account | Makao Hub") {
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="@routes.Assets.versioned("images/photo2.jpg")" alt="A sunny bedroom with a desk by the window">
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-box">
+        <h1>Create your account</h1>
+        <p class="lead">Tell us about you to get started.</p>
+
+        @if(error.nonEmpty) {
+          <p class="form-error" role="alert">@error</p>
+        }
+
+        <form id="register-form" class="form" action="/register" method="post">
+          @helper.CSRF.formField
+          <input type="hidden" name="role" value="@selected">
+          <div class="role-chosen">
+            <span>Joining as</span>
+            <b>@label</b>
+            <a href="/get-started">Change</a>
+          </div>
+
+          <div class="form-row">
+            <label for="fullName">Full name</label>
+            <input id="fullName" name="fullName" type="text" autocomplete="name" value="@fullName" required aria-describedby="fullName-msg">
+            <p class="msg" id="fullName-msg" aria-live="polite"></p>
+          </div>
+
+          <div class="form-row">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" value="@email" required aria-describedby="email-msg">
+            <p class="msg" id="email-msg" aria-live="polite"></p>
+          </div>
+
+          <div class="form-row">
+            <label for="phone">Phone</label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="0712 345 678" value="@phone" required aria-describedby="phone-msg">
+            <p class="msg" id="phone-msg" aria-live="polite"></p>
+          </div>
+
+          <div class="form-row">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" maxlength="72" required aria-describedby="password-help password-msg">
+            <p class="help" id="password-help">8 to 72 characters, with a letter and a number.</p>
+            <p class="msg" id="password-msg" aria-live="polite"></p>
+          </div>
+
+          <div class="form-row">
+            <label for="confirmPassword">Confirm password</label>
+            <input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" maxlength="72" required aria-describedby="confirmPassword-msg">
+            <p class="msg" id="confirmPassword-msg" aria-live="polite"></p>
+          </div>
+
+          <div class="form-row">
+            <label class="check" for="terms">
+              <input id="terms" name="terms" type="checkbox" value="true" required aria-describedby="terms-msg">
+              <span>I accept the Terms of Service and Privacy Policy.</span>
+            </label>
+            <p class="msg" id="terms-msg" aria-live="polite"></p>
+          </div>
+
+          <button class="btn block" type="submit">Create account</button>
+        </form>
+
+        <p class="switch">Already have an account? <a href="/get-started?mode=login">Sign in</a></p>
+      </div>
+    </div>
+  </section>
+
+  <script src="@routes.Assets.versioned("javascripts/register.js")" defer></script>
+
+}

@@ -1,0 +1,66 @@
+@(role: String, view: controllers.BookingsController.BookingsView)(implicit request: Http.Request)
+
+@main("Bookings & payouts | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "profile")
+
+      <p class="bk-back"><a href="/dashboard/profile">&larr; Profile</a></p>
+
+      @if(request.flash().get("bk").orElse("") == "agreement-ok") {
+        <p class="pf-flash" role="status">Booking terms confirmed.</p>
+      }
+      @if(request.flash().get("bk").orElse("") == "movein-ok") {
+        <p class="pf-flash" role="status">Move-in confirmed.</p>
+      }
+      @if(request.flash().get("bk").orElse("") == "failed") {
+        <p class="form-error" role="alert">That step isn't available for this booking yet. Refresh the page and try again.</p>
+      }
+
+      @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your bookings. Refresh the page to try again.</p>
+      }
+
+      <h1 class="dash-title">Bookings &amp; payouts</h1>
+      <p class="dash-sub">Every booking, what was paid, and where your payout stands.</p>
+
+      @if(view.rows().isEmpty() && !view.loadFailed()) {
+        <div class="dash-card">
+          <b>No bookings yet.</b>
+          <p class="dash-muted">When a renter books one of your listings, it will appear here.</p>
+        </div>
+      }
+
+      @for(row <- view.rows()) {
+        <div class="dash-card bk-card">
+          <div class="bk-top">
+            <b>@row.title()</b>
+            <span class="pill">@row.status()</span>
+          </div>
+          @if(!row.person().isEmpty()) {<p class="dash-muted">Renter: @row.person()</p>}
+          <p class="bk-total">@row.total()</p>
+          <p class="dash-muted">@row.breakdown()</p>
+          <p class="bk-line">@row.agreement()</p>
+          <p class="bk-line">@row.payout()</p>
+
+          @if(row.canAgree()) {
+            <form class="bk-form" action="/dashboard/bookings/@row.id()/agreement" method="post">
+              @helper.CSRF.formField
+              <button class="btn sm" type="submit">Confirm booking terms</button>
+            </form>
+          }
+          @if(row.canMoveIn()) {
+            <form class="bk-form" action="/dashboard/bookings/@row.id()/move-in" method="post">
+              @helper.CSRF.formField
+              <button class="btn sm" type="submit">Confirm move-in</button>
+            </form>
+          }
+        </div>
+      }
+
+    </div>
+  </section>
+
+}

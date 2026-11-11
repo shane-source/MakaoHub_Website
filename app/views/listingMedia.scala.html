@@ -1,0 +1,84 @@
+@(role: String, v: controllers.ListingMediaController.MediaView)(implicit request: Http.Request)
+
+@landlord = @{ role == "LANDLORD" }
+@note = @{ request.flash().get("mediaNote").orElse("") }
+@problem = @{ request.flash().get("mediaErr").orElse("") }
+
+@main("Photos and video | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "listings")
+
+      <p class="le-back"><a href="/dashboard/listings/@v.id()/edit">&larr; Back to details</a></p>
+
+      <h1 class="le-title">@if(landlord) {Show your property} else {Show the shared space}</h1>
+      <p class="le-sub">Step 2 of 4 · @v.title()</p>
+
+      @if(!note.isEmpty()) {
+        <p class="pf-flash" role="status">@note</p>
+      }
+      @if(!problem.isEmpty()) {
+        <p class="form-error" role="alert">@problem</p>
+      }
+      @if(v.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your files. Refresh the page to try again.</p>
+      }
+      @if(!v.editable()) {
+        <p class="le-notice" role="status">This listing is @v.status().toLowerCase().replace("_", " "), so files can't be added or removed here.</p>
+      }
+
+      <p class="md-count">@v.images() @if(v.images() == 1) {photo} else {photos} · @v.videos() @if(v.videos() == 1) {video} else {videos}</p>
+
+      @if(v.editable()) {
+        <form class="md-form" action="@helper.CSRF(routes.ListingMediaController.upload(v.id()))" method="post" enctype="multipart/form-data">
+          <label class="btn md-pick">Add photos or video
+            <input type="file" name="files" multiple accept="image/jpeg,image/png,image/webp,video/mp4"
+                   onchange="document.getElementById('md-wait').hidden=false;this.form.submit()">
+          </label>
+          <p class="md-hint">JPEG, PNG or WebP photos, and one MP4 video. Up to 50 MB each.</p>
+          <p id="md-wait" class="md-wait" role="status" hidden>Uploading. Please keep this page open until it finishes.</p>
+        </form>
+      }
+
+      @if(v.rows().isEmpty() && !v.loadFailed()) {
+        <div class="dash-card"><b>No files yet.</b><p class="dash-muted">Good photos help renters decide. Add a few of each room.</p></div>
+      }
+
+      <div class="md-grid">
+        @for(row <- v.rows()) {
+          <article class="md-card">
+            <div class="md-thumb">
+              @if(!row.photo().isEmpty()) {
+                <img src="@row.photo()" alt="Listing photo" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
+              } else {
+                <span class="md-kind">@if(row.video()) {Video} else {Photo}</span>
+              }
+            </div>
+            <div class="md-body">
+              <b>@if(row.video()) {Video walkthrough} else {Photo}</b>
+              <p class="dash-muted">@row.size() · @if(row.confirmed()) {Upload confirmed} else {Confirmation required}</p>
+
+              @if(v.editable()) {
+                @if(!row.confirmed()) {
+                  <form class="md-act" action="/dashboard/listings/@v.id()/photos/@row.id()/confirm" method="post">
+                    @helper.CSRF.formField
+                    <button class="btn sm" type="submit">Confirm stored upload</button>
+                  </form>
+                }
+                <form class="md-act" action="/dashboard/listings/@v.id()/photos/@row.id()/delete" method="post"
+                      onsubmit="return confirm('Remove this file?')">
+                  @helper.CSRF.formField
+                  <button class="btn ghost sm" type="submit">Remove</button>
+                </form>
+              }
+            </div>
+          </article>
+        }
+      </div>
+
+    </div>
+  </section>
+
+}

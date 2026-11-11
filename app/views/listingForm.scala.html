@@ -1,0 +1,156 @@
+@(role: String, f: controllers.ListingEditorController.Form, error: String, notice: String, locked: Boolean)(implicit request: Http.Request)
+
+@landlord = @{ role == "LANDLORD" }
+@editing = @{ !f.id().isEmpty() }
+@types = @{ Seq("APARTMENT" -> "Apartment", "HOUSE" -> "House", "STUDIO" -> "Studio", "BEDSITTER" -> "Bedsitter", "ROOM" -> "Room") }
+@spaces = @{ Seq("SPARE_ROOM" -> "Spare room", "SERVANT_QUARTER" -> "Servant quarter") }
+@flash = @{ request.flash().get("listing").orElse("") }
+
+@main((if(landlord) "Add a listing" else "Make room for someone new") + " | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "listings")
+
+      <p class="le-back"><a href="/dashboard/listings">&larr; My listings</a></p>
+
+      <h1 class="le-title">@if(editing) {Edit your draft} else {@if(landlord) {Add a listing} else {Make room for someone new}}</h1>
+      <p class="le-sub">Step 1 of 4 · @if(landlord) {Property details} else {Shared-space details}. Your listing stays a private draft until it has been reviewed and published.</p>
+
+      @if(flash == "saved") {
+        <p class="pf-flash" role="status">Draft saved. It isn't visible in public search.</p>
+      }
+      @if(flash == "household-failed") {
+        <p class="form-error" role="alert">Your listing was saved, but the household details were not. Check them and save again.</p>
+      }
+      @if(!notice.isEmpty()) {
+        <p class="le-notice" role="status">@notice</p>
+      }
+      @if(!error.isEmpty()) {
+        <p class="form-error" role="alert">@error</p>
+      }
+
+      <form class="form le-form" action="@(if(editing) "/dashboard/listings/" + f.id() + "/edit" else "/dashboard/listings/new")" method="post">
+        @helper.CSRF.formField
+
+        <fieldset class="le-set" @if(locked) {disabled}>
+
+          <div class="form-row">
+            <label for="title">@if(landlord) {Listing title} else {Listing title}</label>
+            <input id="title" name="title" type="text" maxlength="150" value="@f.title()" required>
+          </div>
+
+          <div class="form-row">
+            <label for="kind">@if(landlord) {Property type} else {Room type}</label>
+            <select id="kind" name="kind">
+              @for(option <- (if(landlord) types else spaces)) {
+                <option value="@option._1" @if(f.kind() == option._1) {selected}>@option._2</option>
+              }
+            </select>
+          </div>
+
+          <div class="le-grid">
+            <div class="form-row">
+              <label for="rent">Monthly rent · KSh</label>
+              <input id="rent" name="rent" type="text" inputmode="numeric" pattern="[0-9]*" value="@f.rent()" required>
+            </div>
+            <div class="form-row">
+              <label for="deposit">Deposit · KSh</label>
+              <input id="deposit" name="deposit" type="text" inputmode="numeric" pattern="[0-9]*" value="@f.deposit()" @if(landlord) {required}>
+            </div>
+          </div>
+
+          @if(landlord) {
+            <div class="le-grid">
+              <div class="form-row">
+                <label for="bedrooms">Bedrooms</label>
+                <select id="bedrooms" name="bedrooms">
+                  @for(n <- 0 to 20) { <option value="@n" @if(f.bedrooms() == n.toString) {selected}>@n</option> }
+                </select>
+              </div>
+              <div class="form-row">
+                <label for="bathrooms">Bathrooms</label>
+                <select id="bathrooms" name="bathrooms">
+                  @for(n <- 1 to 20) { <option value="@n" @if(f.bathrooms() == n.toString) {selected}>@n</option> }
+                </select>
+              </div>
+            </div>
+          } else {
+            <div class="form-row">
+              <label for="bathrooms">Bathrooms</label>
+              <select id="bathrooms" name="bathrooms">
+                @for(n <- 1 to 20) { <option value="@n" @if(f.bathrooms() == n.toString) {selected}>@n</option> }
+              </select>
+            </div>
+          }
+
+          <div class="form-row">
+            <label for="description">@if(landlord) {Description} else {Shared home description}</label>
+            <textarea id="description" name="description" maxlength="3000" required>@f.description()</textarea>
+          </div>
+
+          @if(!landlord) {
+            <div class="form-row">
+              <label for="household">Current household</label>
+              <input id="household" name="household" type="text" maxlength="600" value="@f.household()">
+            </div>
+            <div class="le-grid">
+              <div class="form-row">
+                <label for="occupants">Total occupants</label>
+                <input id="occupants" name="occupants" type="text" inputmode="numeric" pattern="[0-9]*" value="@f.occupants()">
+              </div>
+              <div class="form-row">
+                <label for="perRoom">People per room</label>
+                <input id="perRoom" name="perRoom" type="text" inputmode="numeric" pattern="[0-9]*" value="@f.perRoom()">
+              </div>
+            </div>
+            <div class="form-row">
+              <label for="lifestyle">Household lifestyle</label>
+              <textarea id="lifestyle" name="lifestyle" maxlength="600" class="le-short">@f.lifestyle()</textarea>
+            </div>
+          }
+
+          <div class="form-row">
+            <label for="available">Available from</label>
+            <input id="available" name="available" type="date" value="@f.available()">
+          </div>
+
+          <p class="le-label">What's included</p>
+          <div class="le-checks">
+            <label class="check"><input type="checkbox" name="furnished" value="true" @if(f.furnished()) {checked}><span>Furnished</span></label>
+            @if(landlord) {
+              <label class="check"><input type="checkbox" name="water" value="true" @if(f.water()) {checked}><span>Water</span></label>
+              <label class="check"><input type="checkbox" name="security" value="true" @if(f.security()) {checked}><span>Security</span></label>
+              <label class="check"><input type="checkbox" name="parking" value="true" @if(f.parking()) {checked}><span>Parking</span></label>
+              <label class="check"><input type="checkbox" name="balcony" value="true" @if(f.balcony()) {checked}><span>Balcony</span></label>
+              <label class="check"><input type="checkbox" name="pets" value="true" @if(f.pets()) {checked}><span>Pets allowed</span></label>
+            } else {
+              <label class="check"><input type="checkbox" name="amWater" value="true" @if(f.amWater()) {checked}><span>Water</span></label>
+              <label class="check"><input type="checkbox" name="amWifi" value="true" @if(f.amWifi()) {checked}><span>Wi-Fi</span></label>
+              <label class="check"><input type="checkbox" name="amSecurity" value="true" @if(f.amSecurity()) {checked}><span>Security</span></label>
+              <label class="check"><input type="checkbox" name="amParking" value="true" @if(f.amParking()) {checked}><span>Parking</span></label>
+              <label class="check"><input type="checkbox" name="amPets" value="true" @if(f.amPets()) {checked}><span>Pets</span></label>
+            }
+          </div>
+
+          @if(!locked) {
+            <button class="btn block le-save" type="submit">Save draft</button>
+          }
+        </fieldset>
+      </form>
+
+      @if(editing) {
+        <p class="pf-label">YOUR LISTING'S STEPS</p>
+        <ol class="le-steps">
+          <li class="is-done"><b>1. Details</b><span>Saved</span></li>
+          <li><b>2. Photos and video</b><a href="/dashboard/listings/@f.id()/photos">@if(locked) {View} else {Add now}</a></li>
+          <li><b>3. Location</b><span>After photos</span></li>
+          <li><b>4. Review and publish</b><span>After location</span></li>
+        </ol>
+      }
+
+    </div>
+  </section>
+
+}

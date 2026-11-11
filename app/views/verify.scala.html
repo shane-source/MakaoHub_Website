@@ -1,0 +1,33 @@
+@(maskedEmail: String, error: String)(implicit request: Http.Request)
+
+@main("Verify your email | Makao Hub") {
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="@routes.Assets.versioned("images/photo3.jpg")" alt="A spacious open-plan living room">
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-box">
+        <h1>Check your email</h1>
+        <p class="lead">We sent a 6-digit code to <b>@maskedEmail</b>. Enter it below to finish.</p>
+
+        @if(error.nonEmpty) {
+          <p class="form-error" role="alert">@error</p>
+        }
+
+        <form class="form" action="/verify" method="post">
+          @helper.CSRF.formField
+          <div class="form-row">
+            <label for="code">Verification code</label>
+            <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9][0-9][0-9][0-9][0-9][0-9]" title="Enter the 6-digit code" required autofocus>
+          </div>
+          <button class="btn block" type="submit">Verify</button>
+        </form>
+
+        <p class="switch">Wrong email? <a href="/get-started">Start again</a></p>
+      </div>
+    </div>
+  </section>
+
+}

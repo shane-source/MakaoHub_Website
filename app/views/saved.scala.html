@@ -1,0 +1,43 @@
+@(p: models.SavedPage)(implicit request: Http.Request)
+
+@main("Saved homes | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs("RENTER", "saved")
+
+      <h1 class="dash-title">Homes you're saving</h1>
+      <p class="dash-sub">Whole homes and shared spaces</p>
+
+      @if(!p.loaded) {
+        <div class="dash-card">
+          <b>Saved homes unavailable.</b>
+          <p class="dash-muted">We couldn't load them right now. Refresh the page to try again.</p>
+        </div>
+      } else if(p.homes.isEmpty()) {
+      <div class="dash-card">
+        <b>No saved homes yet.</b>
+        <p class="dash-muted">Homes you save will appear here.</p>
+      </div>
+      } else {
+      <div class="home-grid">
+        @for(home <- p.homes) {
+          @homeCard(home)
+        }
+      </div>
+      }
+
+      <p class="dash-pager">
+        @if(p.page > 0) {
+          <a class="btn ghost sm" href="/dashboard/saved?page=@(p.page - 1)">Previous</a>
+        }
+        @if(p.hasNext) {
+          <a class="btn ghost sm" href="/dashboard/saved?page=@(p.page + 1)">Next</a>
+        }
+      </p>
+
+    </div>
+  </section>
+
+}

@@ -1,0 +1,33 @@
+@(error: String, email: String)(implicit request: Http.Request)
+
+@main("Forgot password | Makao Hub") {
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="@routes.Assets.versioned("images/photo1.jpg")" alt="A bright living room with a balcony view">
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-box">
+        <h1>Forgot your password?</h1>
+        <p class="lead">Enter your email and we'll send you a 6-digit code to set a new one.</p>
+
+        @if(error.nonEmpty) {
+          <p class="form-error" role="alert">@error</p>
+        }
+
+        <form class="form" action="/forgot" method="post">
+          @helper.CSRF.formField
+          <div class="form-row">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" autocomplete="email" value="@email" required autofocus>
+          </div>
+          <button class="btn block" type="submit">Send code</button>
+        </form>
+
+        <p class="switch">Remembered it? <a href="/get-started?mode=login">Sign in</a></p>
+      </div>
+    </div>
+  </section>
+
+}

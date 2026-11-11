@@ -1,0 +1,26 @@
+@(role: String)(implicit request: Http.Request)
+
+@main("Appearance | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "profile")
+
+      <p class="chat-back"><a href="/dashboard/profile">&larr; Profile</a></p>
+
+      <h1 class="dash-title">Appearance</h1>
+      <p class="dash-sub">Choose how Makao Hub looks on this device.</p>
+
+      <div class="acct-box" role="radiogroup" aria-label="Appearance">
+        <label class="theme-opt"><input type="radio" name="theme-choice" value="system"><span>Follow device</span></label>
+        <label class="theme-opt"><input type="radio" name="theme-choice" value="light"><span>Light</span></label>
+        <label class="theme-opt"><input type="radio" name="theme-choice" value="dark"><span>Dark</span></label>
+      </div>
+
+      <p class="dash-muted">Saved on this device only.</p>
+
+    </div>
+  </section>
+
+}

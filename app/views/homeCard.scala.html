@@ -1,0 +1,15 @@
+@(home: models.DashboardData.HomeCard)
+
+<article class="home-card">
+  <div class="home-photo">
+    @if(home.sponsored) {<span class="home-tag">BOOSTED · SPONSORED</span>}
+  </div>
+  <div class="home-body">
+    <div class="home-head">
+      <b>@home.title</b>
+      <span class="home-badge">VERIFIED HOST</span>
+    </div>
+    <p class="dash-muted">@home.details</p>
+    <p class="home-rent">@home.rent</p>
+  </div>
+</article>

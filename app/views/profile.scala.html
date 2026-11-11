@@ -1,0 +1,101 @@
+@(role: String, view: controllers.ProfileController.ProfileView)(implicit request: Http.Request)
+
+@main("Profile | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "profile")
+
+      @if(request.flash().get("photo").orElse("") == "ok") {
+        <p class="pf-flash" role="status">Photo updated.</p>
+      }
+      @if(request.flash().get("photo").orElse("") == "failed") {
+        <p class="form-error" role="alert">We couldn't update your photo. Use a JPEG, PNG or WebP image under 5 MB.</p>
+      }
+
+      @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your latest details. Refresh the page to try again.</p>
+      }
+
+      <div class="pf-head">
+        <div class="pf-avatar" aria-hidden="true">
+          <span>@view.initial()</span>
+          @if(view.avatarUrl() != "") {
+            <img src="@view.avatarUrl()" alt="" referrerpolicy="no-referrer" onerror="this.remove()">
+          }
+        </div>
+        <div>
+          <h1 class="pf-name">@view.fullName()</h1>
+          <p class="pf-muted">@view.accountLabel()</p>
+          <p class="pf-status @if(view.verified()) {pf-ok}">@view.verificationLine()</p>
+          <form class="pf-photo" action="@helper.CSRF(routes.PhotoController.change())" method="post" enctype="multipart/form-data">
+            <label class="pf-change">Change photo
+              <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" onchange="this.form.submit()">
+            </label>
+          </form>
+        </div>
+      </div>
+
+      <p class="pf-label">YOUR ACCOUNT</p>
+      <div class="pf-list">
+        @for(action <- view.actions()) {
+          @if(action.href().isEmpty()) {
+            <div class="pf-row is-soon">
+              <span class="pf-ico">@icon(action.icon())</span>
+              <span class="pf-text">@action.title()</span>
+              <em class="pf-soon">Soon</em>
+            </div>
+          } else {
+            <a class="pf-row" href="@action.href()">
+              <span class="pf-ico">@icon(action.icon())</span>
+              <span class="pf-text">@action.title()</span>
+              <span class="pf-chev">@icon("chevron")</span>
+            </a>
+          }
+        }
+        <details class="pf-docs">
+          <summary class="pf-row">
+            <span class="pf-ico">@icon("shield-check")</span>
+            <span class="pf-text">Verification documents</span>
+            <span class="pf-chev">@icon("chevron")</span>
+          </summary>
+          <div class="pf-docs-body">
+            <p class="pf-overview @if(view.verified()) {pf-ok}">@view.overview()</p>
+            @for(doc <- view.documents()) {
+              <div class="pf-doc"><span>@doc.label()</span><b class="@if(doc.ok()) {pf-ok}">@doc.state()</b></div>
+            }
+          </div>
+        </details>
+      </div>
+
+      <p class="pf-label">ACCOUNT SETTINGS</p>
+      <div class="pf-list">
+        <a class="pf-row" href="/dashboard/appearance">
+          <span class="pf-ico">@icon("palette")</span>
+          <span class="pf-text">Appearance</span>
+          <span class="pf-chev">@icon("chevron")</span>
+        </a>
+        <a class="pf-row" href="/dashboard/privacy">
+          <span class="pf-ico">@icon("shield")</span>
+          <span class="pf-text">Privacy and account</span>
+          <span class="pf-chev">@icon("chevron")</span>
+        </a>
+        <a class="pf-row" href="/dashboard/help">
+          <span class="pf-ico">@icon("help")</span>
+          <span class="pf-text">Help and support</span>
+          <span class="pf-chev">@icon("chevron")</span>
+        </a>
+      </div>
+
+      <form class="pf-logout" action="/logout" method="post">
+        @helper.CSRF.formField
+        <button class="pf-out" type="submit">Log out</button>
+      </form>
+
+
+
+    </div>
+  </section>
+
+}

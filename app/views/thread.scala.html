@@ -1,0 +1,57 @@
+@(role: String, view: controllers.MessagesController.ThreadView)(implicit request: Http.Request)
+
+@main(view.title() + " | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "messages")
+
+      <p class="chat-back"><a href="/dashboard/messages">&larr; All messages</a></p>
+
+      @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load this conversation. Refresh the page to try again.</p>
+      }
+
+      <h1 class="chat-title">@view.title()</h1>
+      <p class="chat-kind">@view.kind()</p>
+
+      <div id="chat-older" class="chat-older" data-url="@view.olderUrl()" data-cursor="@view.nextCursor()" @if(!view.hasOlder()) {hidden}>
+        <button class="chat-older-btn" type="button">Load older messages</button>
+        <p class="chat-older-note" role="status"></p>
+      </div>
+
+      <div id="chat-log" class="chat-log" aria-live="polite">
+        @if(view.messages().isEmpty() && !view.loadFailed()) {
+          <p class="chat-empty">No messages yet. Start the conversation when you're ready.</p>
+        }
+        @for(m <- view.messages()) {
+          <div class="chat-msg @if(m.mine()) {is-own}" data-id="@m.id()" @if(!m.mine()) {data-incoming="true" data-delivered="@m.delivered()"}>
+            <p class="chat-text">@m.text()</p>
+            <p class="chat-meta">
+              <span>@m.time()@if(m.masked()) { · Flagged contact attempt · masked}</span>
+              @if(m.mine()) {<span class="chat-ticks">@if(m.delivered()) {✓✓} else {✓}</span>}
+            </p>
+          </div>
+        }
+      </div>
+
+      @if(view.open()) {
+        <p id="chat-error" class="form-error" role="alert" hidden></p>
+
+        <form id="chat-form" class="chat-form" action="/dashboard/messages/send" method="post"
+              data-thread="@view.threadId()" data-channel="@view.channel()">
+          @helper.CSRF.formField
+          <textarea name="content" maxlength="2000" placeholder="Write a message…" aria-label="Message" required></textarea>
+          <button class="btn" type="submit">Send</button>
+        </form>
+      } else {
+        <p class="chat-closed">Conversation closed</p>
+      }
+
+      <script src="@routes.Assets.versioned("javascripts/chat.js")" defer></script>
+
+    </div>
+  </section>
+
+}

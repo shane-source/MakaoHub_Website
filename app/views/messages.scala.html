@@ -1,0 +1,51 @@
+@(role: String, view: controllers.MessagesController.MessagesView)(implicit request: Http.Request)
+
+@main("Messages | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "messages")
+
+      @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your messages. Refresh the page to try again.</p>
+      }
+
+      <h1 class="dash-title">Messages</h1>
+      <p class="dash-sub">Your conversations in one place.</p>
+
+      @if(view.chats().isEmpty() && !view.loadFailed()) {
+        <div class="dash-card">
+          <b>No conversations yet.</b>
+          <p class="dash-muted">When you message a host, a renter or a roommate, the conversation will show up here.</p>
+        </div>
+      }
+
+      @if(!view.chats().isEmpty()) {
+        <div class="nt-list">
+          @for(chat <- view.chats()) {
+            @if(chat.href().isEmpty()) {
+              <div class="mg @if(chat.unread() > 0) {is-unread}">
+                <div class="mg-main">
+                  <div class="mg-top"><b>@chat.title()</b><span class="mg-tag">@chat.kind()</span></div>
+                  @if(!chat.preview().isEmpty()) {<p class="mg-prev">@chat.preview()</p>}
+                </div>
+                @if(chat.unread() > 0) {<span class="mg-badge" aria-label="@chat.unread() unread">@chat.unread()</span>}
+              </div>
+            } else {
+              <a class="mg is-link @if(chat.unread() > 0) {is-unread}" href="@chat.href()">
+                <div class="mg-main">
+                  <div class="mg-top"><b>@chat.title()</b><span class="mg-tag">@chat.kind()</span></div>
+                  @if(!chat.preview().isEmpty()) {<p class="mg-prev">@chat.preview()</p>}
+                </div>
+                @if(chat.unread() > 0) {<span class="mg-badge" aria-label="@chat.unread() unread">@chat.unread()</span>}
+              </a>
+            }
+          }
+        </div>
+      }
+
+    </div>
+  </section>
+
+}

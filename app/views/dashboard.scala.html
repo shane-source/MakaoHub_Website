@@ -1,0 +1,131 @@
+@(role: String, fullName: String, data: models.DashboardData)(implicit request: Http.Request)
+
+@firstName = @{ fullName.trim().split("\\s+")(0) }
+
+@main("Dashboard | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "home")
+
+      @if(!data.loaded) {
+        <p class="form-error" role="alert">We couldn't load your latest data. Refresh the page to try again.</p>
+      }
+
+      <div class="dash-top">
+      <span class="pill @if(data.verification == "VERIFIED") {ok}">
+        @if(data.verification == "VERIFIED") {
+          @if(role == "RENTER") {Verified Renter} else {Verified Partner}
+        } else {
+          @data.verificationLabel
+        }
+      </span>
+      </div>
+
+      @if(role == "RENTER") {
+
+        <h1 class="dash-title">Find your next chapter</h1>
+        <p class="dash-sub">Karibu, @firstName. Let's find somewhere that feels right.</p>
+
+        @if(data.verification != "VERIFIED") {
+          <div class="dash-card">
+            <b>Verify as Renter</b>
+            <p class="dash-muted">Verification lets hosts know your application comes from a real person. It is a later step.</p>
+          </div>
+        }
+
+        <div class="dash-card">
+          <b>Search</b>
+          <p class="dash-muted">Choose an area · All budgets</p>
+        </div>
+
+        <div class="dash-chips">
+          <span class="chip on">All homes</span>
+          <span class="chip">Whole homes</span>
+          <span class="chip">Shared spaces</span>
+        </div>
+
+        @if(!data.homesLoaded) {
+          <div class="dash-card">
+            <b>Homes unavailable.</b>
+            <p class="dash-muted">We couldn't load homes right now.</p>
+          </div>
+        } else if(data.homes.isEmpty()) {
+        <div class="dash-card">
+          <b>No homes match yet.</b>
+          <p class="dash-muted">Try a nearby area or a wider rent range.</p>
+        </div>
+        } else {
+        <div class="home-grid">
+          @for(home <- data.homes) {
+            @homeCard(home)
+          }
+        </div>
+        }
+
+        <p class="dash-links"><a href="/dashboard/saved">Saved homes · View all</a></p>
+
+      } else {
+
+        <h1 class="dash-title">@if(role == "LANDLORD") {Landlord} else {Sublessor} Dashboard</h1>
+        <p class="dash-sub">
+          @if(role == "LANDLORD") {Manage your properties and renters} else {Manage your shared spaces and roommates}
+        </p>
+
+        @if(data.verification != "VERIFIED") {
+          <div class="dash-card">
+            <b>Complete verification</b>
+            <p class="dash-muted">Verification must be approved before you can publish listings. It is a later step.</p>
+          </div>
+        }
+
+        <div class="dash-plans">
+          <div>
+            <small>PLANS &amp; SUBSCRIPTION</small>
+            <b>Explore your plans</b>
+          </div>
+          <a href="/dashboard/plans">View</a>
+        </div>
+
+        <div class="dash-metrics">
+          <div class="metric"><span>Active listings</span><b>@data.active</b></div>
+          <div class="metric"><span>Pending applications</span><b>@data.pending</b></div>
+          <div class="metric"><span>Draft listings</span><b>@data.drafts</b></div>
+        </div>
+
+        <h2 class="dash-h2">Quick Actions</h2>
+        <div class="dash-actions">
+          <a class="action" href="/dashboard/listings"><b>Your listings</b></a>
+          <a class="action" href="/dashboard/applications"><b>Applications</b></a>
+          <a class="action" href="/dashboard/listings"><b>Boost listing</b></a>
+        </div>
+
+        <h2 class="dash-h2">Recent Applications</h2>
+        @if(!data.applicationsLoaded) {
+          <p class="dash-muted">Applications unavailable.</p>
+        } else if(data.applications.isEmpty()) {
+        <p class="dash-muted">No applications to show yet.</p>
+        } else {
+        @for(application <- data.applications) {
+          <div class="dash-card dash-row">
+            <b>@application.title</b>
+            <span class="dash-muted">@application.status</span>
+          </div>
+        }
+        }
+
+        <p class="dash-links">
+          <a href="/dashboard/messages">Messages</a>
+          <a href="/dashboard/bookings">Move-in &amp; payouts</a>
+          @if(role == "SUBLESSOR") {
+            <span>Roommate interests</span>
+          }
+        </p>
+
+      }
+
+    </div>
+  </section>
+
+}

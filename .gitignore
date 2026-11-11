@@ -1,0 +1,21 @@
+logs
+target
+/.bsp
+/.idea
+/.idea_modules
+/.classpath
+/.project
+/.settings
+/RUNNING_PID
+
+# Local configuration and IDE-generated files
+conf/application.conf
+.env
+.env.*
+!.env.example
+.g8/
+*.iml
+*.pem
+*.key
+*.p12
+*.jks
