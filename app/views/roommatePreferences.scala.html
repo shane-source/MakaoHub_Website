@@ -1,0 +1,57 @@
+@(role: String, f: models.RoommatesPage.PreferencesForm)(implicit request: Http.Request)
+
+@main("Roommate preferences | Makao Hub") {
+
+<section class="dash">
+  <div class="dash-wrap">
+
+    @dashTabs(role, "roommates")
+
+    <p class="bk-back"><a href="/dashboard/roommates">&larr; Roommates</a></p>
+
+    @if(request.flash().get("rm").orElse("") == "answers") {
+    <p class="form-error" role="alert">Answer each preference question.</p>
+    }
+    @if(request.flash().get("rm").orElse("") == "budget") {
+    <p class="form-error" role="alert">Enter a valid monthly budget range.</p>
+    }
+    @if(request.flash().get("rm").orElse("") == "failed") {
+    <p class="form-error" role="alert">We couldn't save your preferences. Please try again.</p>
+    }
+
+    <h1 class="dash-title">What makes a good housemate?</h1>
+    <p class="dash-sub">Renters answer the same questions.</p>
+
+    <form class="form po-form" action="/dashboard/roommates/preferences" method="post">
+      @helper.CSRF.formField
+
+      @for(q <- f.questions) {
+      <div class="form-row">
+        <label for="@q.field">@q.title</label>
+        <select id="@q.field" name="@q.field" required>
+          <option value="" @if(q.selected.isEmpty()) {selected}>Select preference</option>
+          @for(o <- q.options) {
+          <option value="@o(0)" @if(q.selected == o(0)) {selected}>@o(1)</option>
+          }
+        </select>
+      </div>
+      }
+
+      <div class="form-row">
+        <label for="minBudget">Budget from · KSh / month</label>
+        <input id="minBudget" name="minBudget" type="text" inputmode="numeric" value="@f.minBudget" required>
+      </div>
+      <div class="form-row">
+        <label for="maxBudget">Budget to · KSh / month</label>
+        <input id="maxBudget" name="maxBudget" type="text" inputmode="numeric" value="@f.maxBudget" required>
+      </div>
+
+      <label class="po-check"><input type="checkbox" name="optIn" value="yes" @if(f.optIn) {checked}> Opt in to roommate discovery (you can turn this off)</label>
+
+      <button class="btn block" type="submit">Save preferences</button>
+    </form>
+
+  </div>
+</section>
+
+}

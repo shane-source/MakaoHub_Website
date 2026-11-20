@@ -24,6 +24,9 @@
       @if(flash == "household-failed") {
         <p class="form-error" role="alert">Your listing was saved, but the household details were not. Check them and save again.</p>
       }
+      @if(flash == "revise") {
+      <p class="le-notice" role="status">Update the listing, then submit it for review again.</p>
+      }
       @if(!notice.isEmpty()) {
         <p class="le-notice" role="status">@notice</p>
       }
@@ -145,8 +148,8 @@
         <ol class="le-steps">
           <li class="is-done"><b>1. Details</b><span>Saved</span></li>
           <li><b>2. Photos and video</b><a href="/dashboard/listings/@f.id()/photos">@if(locked) {View} else {Add now}</a></li>
-          <li><b>3. Location</b><span>After photos</span></li>
-          <li><b>4. Review and publish</b><span>After location</span></li>
+          <li><b>3. Location</b><a href="/dashboard/listings/@f.id()/location">@if(locked) {View} else {Set now}</a></li>
+          <li><b>4. Review and publish</b><a href="/dashboard/listings/@f.id()/review">Open</a></li>
         </ol>
       }
 

@@ -8,13 +8,25 @@
       @dashTabs(role, "messages")
 
       <p class="chat-back"><a href="/dashboard/messages">&larr; All messages</a></p>
+      <div class="mg-actions chat-actions">
+        <form action="/dashboard/messages/@view.slug()/@view.threadId()/state" method="post">
+          @helper.CSRF.formField
+          <input type="hidden" name="state" value="@if(view.archived()) {ACTIVE} else {ARCHIVED}">
+          <button class="mg-act" type="submit">@if(view.archived()) {Move to inbox} else {Archive}</button>
+        </form>
+        <form action="/dashboard/messages/@view.slug()/@view.threadId()/state" method="post"
+              onsubmit="return confirm('Delete this conversation?\n\nIt disappears from your list only. The other person keeps it, and it comes back if they send a new message.');">
+          @helper.CSRF.formField
+          <input type="hidden" name="state" value="DELETED">
+          <button class="mg-act is-danger" type="submit">Delete</button>
+        </form>
+      </div>
 
       @if(view.loadFailed()) {
         <p class="form-error" role="alert">We couldn't load this conversation. Refresh the page to try again.</p>
       }
 
       <h1 class="chat-title">@view.title()</h1>
-      <p class="chat-kind">@view.kind()</p>
 
       <div id="chat-older" class="chat-older" data-url="@view.olderUrl()" data-cursor="@view.nextCursor()" @if(!view.hasOlder()) {hidden}>
         <button class="chat-older-btn" type="button">Load older messages</button>
@@ -43,7 +55,9 @@
               data-thread="@view.threadId()" data-channel="@view.channel()">
           @helper.CSRF.formField
           <textarea name="content" maxlength="2000" placeholder="Write a message…" aria-label="Message" required></textarea>
-          <button class="btn" type="submit">Send</button>
+          <button class="chat-send" type="submit" aria-label="Send" title="Send">
+            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 20 4l-4 16-4.5-6.5L4 12ZM11.5 13.5 20 4"/></svg>
+          </button>
         </form>
       } else {
         <p class="chat-closed">Conversation closed</p>

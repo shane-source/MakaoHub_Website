@@ -22,7 +22,7 @@
         <div class="pf-avatar" aria-hidden="true">
           <span>@view.initial()</span>
           @if(view.avatarUrl() != "") {
-            <img src="@view.avatarUrl()" alt="" referrerpolicy="no-referrer" onerror="this.remove()">
+            <img src="@view.avatarUrl()" alt="" decoding="async" onload="this.parentNode.classList.add('has-photo')" onerror="this.remove()">
           }
         </div>
         <div>
@@ -61,6 +61,7 @@
             <span class="pf-chev">@icon("chevron")</span>
           </summary>
           <div class="pf-docs-body">
+            <p><a class="btn sm" href="/dashboard/verification">@if(view.verified()) {View verification} else {Upload or replace documents}</a></p>
             <p class="pf-overview @if(view.verified()) {pf-ok}">@view.overview()</p>
             @for(doc <- view.documents()) {
               <div class="pf-doc"><span>@doc.label()</span><b class="@if(doc.ok()) {pf-ok}">@doc.state()</b></div>

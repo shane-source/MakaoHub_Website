@@ -2,55 +2,108 @@
 
 @main("Listings | Makao Hub") {
 
-  <section class="dash">
-    <div class="dash-wrap">
+<section class="dash">
+  <div class="dash-wrap">
 
-      @dashTabs(role, "listings")
+    @dashTabs(role, "listings")
 
-      <p class="lst-add"><a class="btn" href="/dashboard/listings/new">Add new listing</a></p>
+    @if(request.flash().get("ls").orElse("") == "removed") {
+    <p class="pf-flash" role="status">Listing removed.</p>
+    }
+    @if(request.flash().get("ls").orElse("") == "boosted") {
+    <p class="pf-flash" role="status">Your listing is boosted.</p>
+    }
+    @if(request.flash().get("ls").orElse("") == "no-credit") {
+    <p class="form-error" role="alert">You have no boost credits. Choose a plan that includes a boost.</p>
+    }
+    @if(request.flash().get("ls").orElse("") == "boost-failed") {
+    <p class="form-error" role="alert">We couldn't boost this listing. Please try again.</p>
+    }
 
-      <div class="dash-headrow">
-        <h1 class="dash-title">@if(role == "LANDLORD") {Your Properties} else {Your Shared Spaces}</h1>
-        <span class="dash-muted">View all (@p.total)</span>
-      </div>
+    @if(!p.loaded) {
+    <p class="form-error" role="alert">We couldn't load your listings. Refresh the page to try again.</p>
+    }
 
-      <div class="dash-chips">
-        <a class="chip @(if(p.filter == "PUBLISHED") "on" else "")" href="/dashboard/listings?status=PUBLISHED">Active (@p.active)</a>
-        <a class="chip @(if(p.filter == "DRAFT") "on" else "")" href="/dashboard/listings?status=DRAFT">Drafts (@p.drafts)</a>
-        <a class="chip @(if(p.filter == "PAUSED") "on" else "")" href="/dashboard/listings?status=PAUSED">Paused (@p.paused)</a>
-      </div>
-
-      @if(p.loaded && p.rows.isEmpty()) {
-        <div class="dash-card">
-          <b>No @p.filterLabel listings.</b>
-        </div>
-      }
-
-      <div class="lst-grid">
-        @for(row <- p.rows) {
-          <article class="lst-card">
-            <div class="lst-photo">
-              <span class="lst-pill @(if(row.boost != null) "boost" else if(row.status == "PUBLISHED") "ok" else "")">@(if(row.boost != null) row.boost else row.statusLabel)</span>
-              <span class="lst-pill views">@row.views</span>
-            </div>
-            <div class="lst-body">
-              <b class="lst-title">@row.title</b>
-              <p class="lst-rent">@row.rent / month</p>
-              <p class="dash-muted">@row.details</p>
-              @if(row.available != null) {
-                <p class="dash-muted">Available @row.available</p>
-              }
-              <p class="lst-leads">Leads: @row.leads</p>
-            </div>
-          </article>
-        }
-      </div>
-
-      @if(p.hasMore) {
-        <p><a class="btn ghost sm" href="/dashboard/listings?status=@p.filter&show=@p.nextShow">Show more listings</a></p>
-      }
-
+    <div class="dash-headrow">
+      <h1 class="dash-title">@if(role == "LANDLORD") {Your Properties} else {Your Shared Spaces}</h1>
+      <span class="dash-muted">View all (@p.total)</span>
     </div>
-  </section>
+
+    <p><a class="btn" href="/dashboard/listings/new">Add new listing</a></p>
+
+    <div class="dash-chips">
+      <a class="chip @(if(p.filter == "PUBLISHED") "on" else "")" href="/dashboard/listings?status=PUBLISHED">Active (@p.active)</a>
+      <a class="chip @(if(p.filter == "DRAFT") "on" else "")" href="/dashboard/listings?status=DRAFT">Drafts (@p.drafts)</a>
+      <a class="chip @(if(p.filter == "PAUSED") "on" else "")" href="/dashboard/listings?status=PAUSED">Paused (@p.paused)</a>
+    </div>
+
+    @if(p.loaded && p.rows.isEmpty()) {
+    <div class="dash-card">
+      <b>No @p.filterLabel listings.</b>
+    </div>
+    }
+
+    <div class="lst-grid">
+      @for(row <- p.rows) {
+      <article class="lst-card">
+        <div class="lst-photo">
+          @if(!row.photo.isEmpty) {
+          <img class="lst-img" src="@row.photo" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
+          }
+          <span class="lst-pill st-@row.status.toLowerCase()">@if(row.boost != null) {Boosted · @row.boost} else {@row.statusLabel}</span>
+          <b class="lst-price">@row.rent / month</b>
+        </div>
+        <div class="lst-body">
+          <b class="lst-title">@row.title</b>
+          <p class="dash-muted">@row.details</p>
+          @if(row.available != null) {
+          <p class="dash-muted">Available @row.available</p>
+          }
+          <p class="dash-muted">@row.views</p>
+          <p><a class="btn sm block" href="/dashboard/applications">View leads (@row.leads)</a></p>
+
+          @if(!row.id.isEmpty) {
+          <div class="lst-actions">
+            @if(row.status == "DRAFT") {
+            <a class="btn ghost sm" href="/dashboard/listings/@row.id/review">Review &amp; publish</a>
+            }
+            <details class="mg-menu">
+              <summary class="btn sm">Manage</summary>
+              <div class="mg-pop">
+                @if(row.status == "DRAFT") {
+                <a class="mg-item" href="/dashboard/listings/@row.id/edit">Update</a>
+                } else {
+                <a class="mg-item" href="/dashboard/listings/@row.id/edit"
+                   onclick="return confirm('Update this listing?\n\nA published listing will be removed from search while you edit it. Submit your changes for review before it can be published again.')">Update</a>
+                }
+                @if(row.status == "PAUSED") {
+                <form action="/dashboard/listings/@row.id/review/resume" method="post">
+                  @helper.CSRF.formField
+                  <button class="mg-item" type="submit">Resume</button>
+                </form>
+                }
+                <form action="/dashboard/listings/@row.id/review/archive" method="post"
+                      onsubmit="return confirm('Delete this listing?\n\nThis removes the listing from your listings and public search. It is archived to keep application and payment records.')">
+                  @helper.CSRF.formField
+                  <button class="mg-item danger" type="submit">Delete listing</button>
+                </form>
+              </div>
+            </details>
+            @if(row.status == "PUBLISHED") {
+            <a class="btn ghost sm" href="/dashboard/listings/@row.id/boost">Boost</a>
+            }
+          </div>
+          }
+        </div>
+      </article>
+      }
+    </div>
+
+    @if(p.hasMore) {
+    <p><a class="btn ghost sm" href="/dashboard/listings?status=@p.filter&show=@p.nextShow">Show more listings</a></p>
+    }
+
+  </div>
+</section>
 
 }

@@ -10,7 +10,26 @@
       <p class="hp-back"><a href="/dashboard/profile">&larr; Profile</a></p>
 
       <h1 class="hp-title">Help and support</h1>
-      <p class="hp-sub">Talk to the Makao Hub team on WhatsApp. Choose a topic and we'll start the chat for you.</p>
+      <p class="hp-sub">Ask Jirani, our AI helper, or talk to the Makao Hub team on WhatsApp.</p>
+
+      <div id="jirani" class="dash-card">
+        <b>Jirani</b> <span class="dash-muted">AI assistant</span>
+        <p class="dash-muted">Ask about verification, listings, applications, bookings, payments or plans. Jirani can't see your account, so never share passwords or codes.</p>
+        <div class="dash-chips">
+          <button class="chip" type="button" data-ask="How do I get verified?">How do I get verified?</button>
+          <button class="chip" type="button" data-ask="How does payment and move-in work?">Payment and move-in</button>
+          <button class="chip" type="button" data-ask="How do I boost my listing?">Boost a listing</button>
+        </div>
+        <div id="jirani-log" class="chat-log" aria-live="polite"></div>
+        <p id="jirani-error" class="form-error" role="alert" hidden></p>
+        <form id="jirani-form" class="chat-form" action="/dashboard/jirani" method="post">
+          @helper.CSRF.formField
+          <textarea name="content" maxlength="1000" placeholder="Ask Jirani…" aria-label="Ask Jirani" required></textarea>
+          <button class="btn" type="submit">Send</button>
+        </form>
+        <p class="dash-muted">Jirani is an AI and can make mistakes. For payment disputes or safety concerns, use WhatsApp below.</p>
+      </div>
+      <script src="@routes.Assets.versioned("javascripts/jirani.js")" defer></script>
 
       @if(!view.configured()) {
         <p class="form-error" role="status">WhatsApp support isn't set up yet. Please check back soon.</p>

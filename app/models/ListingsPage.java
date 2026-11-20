@@ -17,6 +17,7 @@ public class ListingsPage {
     public int nextShow = 40;
 
     public static class ListingRow {
+        public final String id;          // empty when the backend gave an id we won't put in an address
         public final String title;
         public final String rent;
         public final String details;
@@ -26,9 +27,11 @@ public class ListingsPage {
         public final int leads;
         public final String views;
         public final String boost;       // null when there is no active boost
+        public String photo = "";        // signed https address of the first photo, empty when none
 
-        public ListingRow(String title, String rent, String details, String status, String statusLabel,
-                          String available, int leads, String views, String boost) {
+        public ListingRow(String id, String title, String rent, String details, String status,
+                          String statusLabel, String available, int leads, String views, String boost) {
+            this.id = id;
             this.title = title;
             this.rent = rent;
             this.details = details;

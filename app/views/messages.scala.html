@@ -11,36 +11,81 @@
         <p class="form-error" role="alert">We couldn't load your messages. Refresh the page to try again.</p>
       }
 
-      <h1 class="dash-title">Messages</h1>
-      <p class="dash-sub">Your conversations in one place.</p>
+      <div class="ms-head">
+        <h1 class="ms-title">Messages</h1>
+        <button class="ms-searchbtn" type="button" aria-label="Search conversations" onclick="var f=document.getElementById('ms-search');f.hidden=!f.hidden;if(!f.hidden){f.querySelector('input[type=search]').focus()}">&#128269;</button>
+      </div>
+
+      <div class="ms-pills" role="tablist">
+        <a class="ms-pill @if(!view.showArchived()) {on}" href="/dashboard/messages" role="tab">Inbox</a>
+        <a class="ms-pill @if(view.showArchived()) {on}" href="/dashboard/messages?tab=archived" role="tab">Archived (@view.archivedCount())</a>
+      </div>
+
+      <form id="ms-search" class="mg-search" action="/dashboard/messages" method="get" role="search" @if(view.query().isEmpty()) {hidden}>
+        @if(view.showArchived()) {<input type="hidden" name="tab" value="archived">}
+        <input type="search" name="q" value="@view.query()" maxlength="100" placeholder="Search conversations" aria-label="Search conversations">
+        <button class="btn sm ghost" type="submit">Search</button>
+      </form>
 
       @if(view.chats().isEmpty() && !view.loadFailed()) {
         <div class="dash-card">
-          <b>No conversations yet.</b>
-          <p class="dash-muted">When you message a host, a renter or a roommate, the conversation will show up here.</p>
+          @if(!view.query().isEmpty()) {
+            <b>No conversations match your search.</b>
+          } else {
+            @if(view.showArchived()) {
+              <b>No archived conversations.</b>
+            } else {
+              <b>No conversations yet.</b>
+              <p class="dash-muted">When you message a host, a renter or a roommate, the conversation will show up here.</p>
+            }
+          }
         </div>
       }
 
       @if(!view.chats().isEmpty()) {
-        <div class="nt-list">
+        <div class="ms-list">
           @for(chat <- view.chats()) {
-            @if(chat.href().isEmpty()) {
-              <div class="mg @if(chat.unread() > 0) {is-unread}">
-                <div class="mg-main">
-                  <div class="mg-top"><b>@chat.title()</b><span class="mg-tag">@chat.kind()</span></div>
-                  @if(!chat.preview().isEmpty()) {<p class="mg-prev">@chat.preview()</p>}
+            <div class="ms-row @if(chat.unread() > 0) {is-unread}">
+              <span class="ms-avatar">@chat.title().substring(0, 1)</span>
+              @if(chat.href().isEmpty()) {
+                <div class="ms-main">
+                  <div class="ms-top"><span class="ms-name">@chat.title()</span><span class="ms-date">@chat.date()</span></div>
+                  <span class="ms-prev">@chat.preview()</span>
                 </div>
-                @if(chat.unread() > 0) {<span class="mg-badge" aria-label="@chat.unread() unread">@chat.unread()</span>}
-              </div>
-            } else {
-              <a class="mg is-link @if(chat.unread() > 0) {is-unread}" href="@chat.href()">
-                <div class="mg-main">
-                  <div class="mg-top"><b>@chat.title()</b><span class="mg-tag">@chat.kind()</span></div>
-                  @if(!chat.preview().isEmpty()) {<p class="mg-prev">@chat.preview()</p>}
-                </div>
-                @if(chat.unread() > 0) {<span class="mg-badge" aria-label="@chat.unread() unread">@chat.unread()</span>}
-              </a>
-            }
+              } else {
+                <a class="ms-main" href="@chat.href()">
+                  <div class="ms-top"><span class="ms-name">@chat.title()</span><span class="ms-date">@chat.date()</span></div>
+                  <span class="ms-prev">@chat.preview()</span>
+                </a>
+              }
+              @if(chat.unread() > 0) {<span class="mg-badge" aria-label="@chat.unread() unread">@chat.unread()</span>}
+              @if(!chat.id().isEmpty()) {
+                <details class="ms-menu">
+                  <summary aria-label="More">&#8942;</summary>
+                  <div class="ms-pop">
+                    @if(chat.archived()) {
+                    <form action="/dashboard/messages/@chat.slug()/@chat.id()/state" method="post">
+                      @helper.CSRF.formField
+                      <input type="hidden" name="state" value="ACTIVE">
+                      <button class="ms-item" type="submit">Move to inbox</button>
+                    </form>
+                    } else {
+                    <form action="/dashboard/messages/@chat.slug()/@chat.id()/state" method="post">
+                      @helper.CSRF.formField
+                      <input type="hidden" name="state" value="ARCHIVED">
+                      <button class="ms-item" type="submit">Archive</button>
+                    </form>
+                    }
+                    <form action="/dashboard/messages/@chat.slug()/@chat.id()/state" method="post"
+                          onsubmit="return confirm('Delete this conversation?\n\nIt disappears from your list only. The other person keeps it, and it comes back if they send a new message.');">
+                      @helper.CSRF.formField
+                      <input type="hidden" name="state" value="DELETED">
+                      <button class="ms-item danger" type="submit">Delete</button>
+                    </form>
+                  </div>
+                </details>
+              }
+            </div>
           }
         </div>
       }

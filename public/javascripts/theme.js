@@ -15,6 +15,9 @@
     function apply(mode) {
         var dark = mode === "dark" || (mode === "system" && query && query.matches);
         root.setAttribute("data-theme", dark ? "dark" : "light");
+        root.style.colorScheme = dark ? "dark" : "light";
+        var bar = document.querySelector('meta[name="theme-color"]');
+        if (bar) bar.setAttribute("content", dark ? "#1B1715" : "#FAF7F4");
     }
 
     apply(stored());
@@ -25,6 +28,18 @@
         if (query.addEventListener) query.addEventListener("change", changed);
         else if (query.addListener) query.addListener(changed);
     }
+
+    // Keep other open tabs in step when the choice changes.
+    window.addEventListener("storage", function (event) {
+        if (event.key === KEY || event.key === null) {
+            apply(stored());
+            var radios = document.querySelectorAll("input[name=theme-choice]");
+            radios.forEach(function (radio) { radio.checked = radio.value === stored(); });
+        }
+    });
+
+    // The meta tag lives in <head>, after this script runs, so set it again once the page is parsed.
+    document.addEventListener("DOMContentLoaded", function () { apply(stored()); });
 
     // The Appearance page only has the radio buttons; this wires them up.
     function wire() {

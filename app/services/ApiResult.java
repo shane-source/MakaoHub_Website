@@ -25,6 +25,11 @@ public class ApiResult {
         return json == null ? "" : json.path(field).asText("");
     }
 
+    // The backend's machine-readable problem code, or "" if there is none.
+    public String code() {
+        return text("code");
+    }
+
     // A message that is safe to show to the person.
     public String errorMessage() {
         if (status == 0) {

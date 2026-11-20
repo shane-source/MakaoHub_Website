@@ -1,6 +1,7 @@
 package controllers;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.typesafe.config.Config;
 import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,16 +19,23 @@ public class AuthController extends Controller {
     private static final Set<String> ROLES = Set.of("RENTER", "LANDLORD", "SUBLESSOR");
 
     private final MakaoApi api;
+    private final String googleClientId;
 
     @Inject
-    public AuthController(MakaoApi api) {
+    public AuthController(MakaoApi api, Config config) {
         this.api = api;
+        this.googleClientId = config.hasPath("makao.google.clientId") ? config.getString("makao.google.clientId") : "";
     }
 
     // ---------- Pages ----------
 
     // Choose a role. mode is "register" (default) or "login".
-    public Result rolePage(String mode) {
+    public Result rolePage(Http.Request request, String mode, String change) {
+        // A returning user goes straight to sign-in as their last role. "change" lets them pick another role.
+        String last = DashSupport.lastRole(request);
+        if ("login".equals(mode) && last != null && !"1".equals(change)) {
+            return redirect("/login?role=" + last);
+        }
         return ok(views.html.role.render("login".equals(mode) ? "login" : "register"));
     }
 
@@ -40,6 +48,7 @@ public class AuthController extends Controller {
                 flashValue(request, "fullName"),
                 flashValue(request, "email"),
                 flashValue(request, "phone"),
+                googleClientId,
                 request));
     }
 
@@ -52,6 +61,7 @@ public class AuthController extends Controller {
                 label(role),
                 flashValue(request, "error"),
                 flashValue(request, "email"),
+                googleClientId,
                 request));
     }
 
@@ -81,10 +91,10 @@ public class AuthController extends Controller {
         }
 
         // The browser already checked these. We check again because anyone can bypass the browser.
-        String problem = null;
-        if (!password.equals(confirm)) {
+        String problem = registrationProblem(fullName, email, phone, password);
+        if (problem == null && !password.equals(confirm)) {
             problem = "Passwords do not match.";
-        } else if (!terms) {
+        } else if (problem == null && !terms) {
             problem = "Accept the Terms of Service and Privacy Policy to continue.";
         }
         if (problem != null) {
@@ -99,7 +109,7 @@ public class AuthController extends Controller {
         body.put("role", role);
         body.put("termsAndPrivacyAccepted", true);
 
-        return api.post("/api/v1/auth/register", body).thenApply(result -> {
+        return api.post(request, "/api/v1/auth/register", body).thenApply(result -> {
             if (!result.isSuccess()) {
                 return backToRegister(role, result.errorMessage(), fullName, email, phone);
             }
@@ -134,15 +144,22 @@ public class AuthController extends Controller {
         if (email.isEmpty() || password.isEmpty()) {
             return done(backToLogin(role, "Enter your email and password.", email));
         }
+        if (!validEmail(email)) {
+            return done(backToLogin(role, "Enter a valid email address.", email));
+        }
 
         ObjectNode body = Json.newObject();
         body.put("email", email);
         body.put("password", password);
         body.put("expectedRole", role);
 
-        return api.post("/api/v1/auth/login", body).thenApply(result -> {
+        return api.post(request, "/api/v1/auth/login", body).thenApply(result -> {
             if (!result.isSuccess()) {
                 return backToLogin(role, result.errorMessage(), email);
+            }
+            // An active account is signed in straight away: no email code on sign-in.
+            if (!result.text("accessToken").isEmpty()) {
+                return signedIn(request, result);
             }
             String challengeId = result.text("challengeId");
             if (challengeId.isEmpty()) {
@@ -173,24 +190,32 @@ public class AuthController extends Controller {
         body.put("challengeId", challengeId);
         body.put("code", code);
 
-        String path = kind.equals("login")
-                ? "/api/v1/auth/login/verify-otp"
-                : "/api/v1/auth/register/verify-otp";
+        String path;
+        switch (kind) {
+            case "login": path = "/api/v1/auth/login/verify-otp"; break;
+            case "googleLogin": path = "/api/v1/auth/google/verify-otp"; break;
+            case "reactivation": path = "/api/v1/auth/reactivate/verify-otp"; break;
+            default: path = "/api/v1/auth/register/verify-otp";
+        }
 
-        return api.post(path, body).thenApply(result -> {
+        return api.post(request, path, body).thenApply(result -> {
             if (!result.isSuccess()) {
                 return redirect("/verify").flashing("error", result.errorMessage());
             }
-            Map<String, String> session = new HashMap<>(request.session().data());
-            session.remove("challengeId");
-            session.remove("otpKind");
-            session.remove("maskedEmail");
-            session.put("accessToken", result.text("accessToken"));
-            session.put("refreshToken", result.text("refreshToken"));
-            session.put("fullName", result.text("fullName"));
-            session.put("role", result.text("role"));
-            return redirect("/dashboard").withSession(session);
+            return signedIn(request, result);
         });
+    }
+
+    private Result signedIn(Http.Request request, services.ApiResult result) {
+        Map<String, String> session = new HashMap<>(request.session().data());
+        session.remove("challengeId");
+        session.remove("otpKind");
+        session.remove("maskedEmail");
+        session.put("accessToken", result.text("accessToken"));
+        session.put("refreshToken", result.text("refreshToken"));
+        session.put("fullName", result.text("fullName"));
+        session.put("role", result.text("role"));
+        return DashSupport.rememberRole(redirect("/dashboard").withSession(session), result.text("role"));
     }
 
     // ---------- Forgot password ----------
@@ -211,7 +236,7 @@ public class AuthController extends Controller {
         ObjectNode body = Json.newObject();
         body.put("email", email);
 
-        return api.post("/api/v1/auth/forgot-password", body).thenApply(result -> {
+        return api.post(request, "/api/v1/auth/forgot-password", body).thenApply(result -> {
             if (!result.isSuccess()) {
                 return backToForgot(result.errorMessage(), email);
             }
@@ -264,7 +289,7 @@ public class AuthController extends Controller {
         body.put("code", code);
         body.put("newPassword", password);
 
-        return api.post("/api/v1/auth/forgot-password/reset", body).thenApply(result -> {
+        return api.post(request, "/api/v1/auth/forgot-password/reset", body).thenApply(result -> {
             if (!result.isSuccess()) {
                 return redirect("/reset").flashing("error", result.errorMessage());
             }
@@ -301,6 +326,26 @@ public class AuthController extends Controller {
         flash.put("error", message);
         flash.put("email", email);
         return redirect("/forgot").flashing(flash);
+    }
+
+    // ---------- Checks shared by the forms (the browser checks first; these cannot be bypassed) ----------
+
+    private static boolean validEmail(String email) {
+        return email.length() <= 320 && email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
+    }
+
+    /** The first thing wrong with a new account's details, or null when they are fine. */
+    private static String registrationProblem(String fullName, String email, String phone, String password) {
+        if (!fullName.matches("^[\\p{L}][\\p{L} .'-]{1,78}$") || fullName.trim().split("\\s+").length < 2) {
+            return "Enter your first and last name.";
+        }
+        if (!validEmail(email)) return "Enter a valid email address.";
+        if (!phone.matches("^(?:\\+254|254|0)[17]\\d{8}$")) return "Enter a Kenyan number, like 0712 345 678.";
+        if (password.length() < 8 || password.length() > 72
+                || !password.matches(".*[A-Za-z].*") || !password.matches(".*\\d.*")) {
+            return "Use 8 to 72 characters for your password, with a letter and a number.";
+        }
+        return null;
     }
 
     private static String label(String role) {

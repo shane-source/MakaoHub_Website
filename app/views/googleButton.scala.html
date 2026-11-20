@@ -1,0 +1,20 @@
+@(clientId: String, role: String, mode: String)(implicit request: Http.Request)
+
+@* Google's own button (it draws the official logo). Hidden when no client ID is configured. *@
+@if(clientId.nonEmpty) {
+  <style>
+    .or-divider{display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:#6b7280;font-size:.85rem}
+    .or-divider::before,.or-divider::after{content:"";flex:1;height:1px;background:currentColor;opacity:.25}
+    .google-button{display:flex;justify-content:center;min-height:44px}
+  </style>
+  <div class="or-divider"><span>or</span></div>
+  <div id="google-button" class="google-button"
+       data-client-id="@clientId"
+       data-text="@(if(mode == "login") "signin_with" else "signup_with")"></div>
+  <form id="google-form" action="@(if(mode == "login") "/google/login" else "/google/continue")" method="post">
+    @helper.CSRF.formField
+    <input type="hidden" name="role" value="@role">
+    <input type="hidden" name="idToken" value="">
+  </form>
+  <script src="@routes.Assets.versioned("javascripts/google.js")" defer></script>
+}

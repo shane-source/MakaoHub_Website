@@ -1,0 +1,116 @@
+@(role: String, view: controllers.HomesController.DetailView)(implicit request: Http.Request)
+
+@main(view.title() + " | Makao Hub") {
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "browse")
+
+        <p class="hm-back"><a href="/dashboard/homes">&larr; All homes</a></p>
+
+        @if(request.flash().get("hm").orElse("") == "saved") {
+        <p class="pf-flash" role="status">Saved to your homes.</p>
+        }
+        @if(request.flash().get("hm").orElse("") == "removed") {
+        <p class="pf-flash" role="status">Removed from your saved homes.</p>
+        }
+        @if(request.flash().get("hm").orElse("") == "failed") {
+        <p class="form-error" role="alert">We couldn't update your saved homes. Please try again.</p>
+        }
+        @if(request.flash().get("hm").orElse("") == "applied") {
+        <p class="pf-flash" role="status">Application sent. The owner will review it. You can follow it under Applications.</p>
+        }
+        @if(request.flash().get("hm").orElse("") == "reported") {
+        <p class="pf-flash" role="status">Thank you. Your report was sent to Makao Hub staff.</p>
+        }
+        @if(request.flash().get("hm").orElse("") == "apply-failed") {
+        <p class="form-error" role="alert">@request.flash().get("hmMsg").orElse("We couldn't send your application. Please try again.")</p>
+        }
+
+        @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load this home. Go back and try another, or refresh.</p>
+        }
+
+        @if(!view.photos().isEmpty()) {
+        <div class="hm-pager-box" data-pager>
+            @for(photo <- view.photos()) {
+            <img class="hm-slide" src="@photo" alt="Photo of @view.title()" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">
+            }
+            <button type="button" class="hm-share" data-share aria-label="Share this home">Share</button>
+            <span class="hm-price-tag">@view.rent()</span>
+            <span class="hm-count" data-count></span>
+            <button type="button" class="hm-next" data-next>Next</button>
+        </div>
+        }
+
+        <h1 class="dash-title">@view.title()</h1>
+        @if(view.sponsored()) {<span class="hm-tag">Sponsored</span>}
+        @if(!view.area().isEmpty()) {<p class="dash-sub">@view.area()</p>}
+        <p class="hm-price">@view.rent()</p>
+        @if(view.photos().isEmpty()) {<p><button type="button" class="btn sm ghost" data-share>Share</button></p>}
+
+        <ul class="hm-facts">
+            @for(fact <- view.facts()) {
+            <li>@fact</li>
+            }
+        </ul>
+
+        @if(!view.description().isEmpty()) {
+        <h2 class="dash-h2">About this home</h2>
+        <p class="hm-desc">@view.description()</p>
+        }
+
+        <p class="dash-muted">Only an approximate area is shown. You choose when to unlock more.</p>
+
+        @if(!view.loadFailed()) {
+        <div class="dash-card ul-box">
+            <b>Secure access</b>
+            <p class="dash-muted">Unlock only what you need. Pay once per item.</p>
+            <ul class="ul-list">
+                <li><a href="/dashboard/homes/@view.source()/@view.id()/access/video">Full video tour<span>Walk through every room before you visit</span></a></li>
+                <li><a href="/dashboard/homes/@view.source()/@view.id()/access/phone">Host contact<span>Get the owner's phone number</span></a></li>
+                <li><a href="/dashboard/homes/@view.source()/@view.id()/access/location">Exact location<span>See the precise address and map pin</span></a></li>
+            </ul>
+        </div>
+        }
+
+        @if(!view.loadFailed()) {<p><a class="btn" href="#start-booking">Start booking</a></p>}
+        <div class="hm-actions">
+            @if(!view.loadFailed()) {
+            <form id="start-booking" class="form" action="/dashboard/homes/@view.source()/@view.id()/apply" method="post"
+                  onsubmit="return confirm('Send your application for this home to the owner?')">
+                @helper.CSRF.formField
+                <div class="form-row">
+                    <label for="moveInDate">When do you want to move in?</label>
+                    <input id="moveInDate" name="moveInDate" type="date" required>
+                </div>
+                <div class="form-row">
+                    <label for="message">Message to the owner (optional)</label>
+                    <textarea id="message" name="message" rows="3" maxlength="500"></textarea>
+                </div>
+                <button class="btn sm" type="submit">Apply for this home</button>
+            </form>
+            }
+            @if(!view.savedKnown() || !view.saved()) {
+            <form action="/dashboard/homes/@view.source()/@view.id()/save" method="post">
+                @helper.CSRF.formField
+                <button class="btn sm ghost" type="submit" name="do" value="save">Save home</button>
+            </form>
+            }
+            @if(!view.savedKnown() || view.saved()) {
+            <form action="/dashboard/homes/@view.source()/@view.id()/save" method="post">
+                @helper.CSRF.formField
+                <button class="btn sm ghost" type="submit" name="do" value="remove">Remove from saved</button>
+            </form>
+            }
+        </div>
+
+        <p class="dash-muted"><a href="/dashboard/homes/@view.source()/@view.id()/report">Report this listing</a></p>
+
+    </div>
+</section>
+
+<script src="@routes.Assets.versioned("javascripts/detail.js")" defer></script>
+
+}

@@ -1,0 +1,112 @@
+@(role: String, view: controllers.HomesController.ListView)(implicit request: Http.Request)
+
+@main("Browse homes | Makao Hub") {
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "browse")
+
+        @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load homes. Refresh the page to try again.</p>
+        }
+
+        <h1 class="dash-title">Browse homes</h1>
+        <p class="dash-sub">Verified homes and shared spaces. Public listings show an approximate area.</p>
+
+        @if(view.filters().error() != null) {
+        <p class="form-error" role="alert">@view.filters().error()</p>
+        }
+
+        <form class="hm-filters" action="/dashboard/homes" method="get">
+            <input type="search" name="area" value="@view.filters().area()" maxlength="150" placeholder="Search an area" aria-label="Search an area" list="hm-areas">
+            <datalist id="hm-areas">
+                @for(a <- view.areas()) {<option value="@a"></option>}
+            </datalist>
+            <input type="hidden" name="sort" value="@view.sort()">
+            <div class="hm-fgrid">
+                <label>Minimum rent · KSh<input type="text" inputmode="numeric" name="min" value="@view.filters().min()"></label>
+                <label>Maximum rent · KSh<input type="text" inputmode="numeric" name="max" value="@view.filters().max()"></label>
+                <label>Bedrooms · minimum
+                    <select name="bedrooms">
+                        <option value="">Any</option>
+                        @for(n <- 0 to 20) {<option value="@n" @if(view.filters().bedrooms() == n.toString) {selected}>@n</option>}
+                    </select>
+                </label>
+                <label>Source
+                    <select name="source">
+                        <option value="">Any source</option>
+                        <option value="LANDLORD" @if(view.filters().source() == "LANDLORD") {selected}>Landlord</option>
+                        <option value="SUBLESSOR" @if(view.filters().source() == "SUBLESSOR") {selected}>Sublessor</option>
+                    </select>
+                </label>
+                <label>Property type
+                    <select name="propertyType">
+                        <option value="">Any property type</option>
+                        @for(t <- scala.collection.immutable.List("APARTMENT","BEDSITTER","HOUSE","ROOM","SERVANT_QUARTER","SPARE_ROOM","STUDIO")) {
+                        <option value="@t" @if(view.filters().propertyType() == t) {selected}>@(t.toLowerCase.replace("_", " ").capitalize)</option>
+                        }
+                    </select>
+                </label>
+                <label>Available by · YYYY-MM-DD<input type="text" name="availableBy" value="@view.filters().availableBy()" maxlength="10"></label>
+            </div>
+            <label class="hm-check"><input type="checkbox" name="furnished" value="true" @if(view.filters().furnished()) {checked}> Furnished</label>
+            <p class="hm-factions">
+                <button class="btn sm" type="submit">Apply filters</button>
+                @if(view.filters().any()) {<a class="btn ghost sm" href="/dashboard/homes">Clear all</a>}
+            </p>
+        </form>
+
+        <p class="hm-tools">
+            <a href="/dashboard/homes">Filters</a>
+            <span class="hm-sort">
+                <a class="@(if(view.sort() == "relevant") "on" else "")" href="/dashboard/homes?sort=relevant@view.filters().keep()">Relevant</a>
+                <a class="@(if(view.sort() == "low") "on" else "")" href="/dashboard/homes?sort=low@view.filters().keep()">Price: low to high</a>
+                <a class="@(if(view.sort() == "high") "on" else "")" href="/dashboard/homes?sort=high@view.filters().keep()">Price: high to low</a>
+            </span>
+            <a href="https://www.google.com/maps/search/?api=1&query=@(java.net.URLEncoder.encode("homes for rent " + (if(view.filters().area().isEmpty()) "Nairobi" else view.filters().area()), "UTF-8"))" target="_blank" rel="noopener noreferrer">Map view</a>
+        </p>
+
+        @if(view.cards().isEmpty() && !view.loadFailed()) {
+        <div class="dash-card">
+            @if(view.filters().any()) {
+            <b>No homes match yet.</b>
+            <p class="dash-muted">Try a nearby area or a wider rent range.</p>
+            } else {
+            <b>No homes to show yet.</b>
+            <p class="dash-muted">Check back soon, or look at the previous page.</p>
+            }
+        </div>
+        }
+
+        <div class="hm-grid">
+            @for(card <- view.cards()) {
+            @if(card.href().isEmpty()) {
+            <div class="hm-card">
+                <b>@card.title()</b>
+                <p class="hm-meta">@card.meta()</p>
+                <p class="hm-rent">@card.rent()</p>
+            </div>
+            } else {
+            <a class="hm-card hm-link" href="@card.href()">
+                <div class="hm-tags">
+                    @if(card.sponsored()) {<span class="hm-tag">Boosted · Sponsored</span>}
+                    @if(card.furnished()) {<span class="hm-tag">Furnished</span>}
+                </div>
+                <b>@card.title()</b>
+                <p class="hm-meta">@card.meta()</p>
+                <p class="hm-rent">@card.rent()</p>
+            </a>
+            }
+            }
+        </div>
+
+        <div class="hm-pager">
+            @if(view.hasPrev()) {<a href="/dashboard/homes?page=@(view.page() - 1)&sort=@view.sort()@view.filters().keep()">&larr; Previous</a>}
+            @if(view.hasNext()) {<a href="/dashboard/homes?page=@(view.page() + 1)&sort=@view.sort()@view.filters().keep()">Next &rarr;</a>}
+        </div>
+
+    </div>
+</section>
+
+}

@@ -19,3 +19,10 @@ conf/application.conf
 *.key
 *.p12
 *.jks
+
+.env
+target/
+project/target/
+.bsp/
+.idea/
+logs/

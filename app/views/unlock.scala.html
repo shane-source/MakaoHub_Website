@@ -1,0 +1,78 @@
+@(view: controllers.UnlockController.AccessView)(implicit request: Http.Request)
+
+@main("Secure access | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs("RENTER", "browse")
+
+      <p class="chat-back"><a href="/dashboard/homes/@view.source()/@view.id()">&larr; Back to listing</a></p>
+
+      @if(view.notice() == "failed") {
+        <p class="form-error" role="alert">We couldn't start the payment. Please try again.</p>
+      }
+      @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load this right now. Refresh the page to try again.</p>
+      }
+
+      @if(view.unlocked()) {
+
+        <h1 class="dash-title">@view.kind().title()</h1>
+        <p class="dash-sub">Unlocked for this home</p>
+
+        @if(view.kind().slug() == "phone") {
+          <div class="dash-card">
+            <b>@view.ownerName()</b>
+            <p class="ul-phone"><a href="tel:@view.phone()">@view.phone()</a></p>
+          </div>
+        }
+
+        @if(view.kind().slug() == "location") {
+          <div class="dash-card">
+            <b>@view.areaLabel()</b>
+            <p class="dash-muted">Exact pin · @view.latitude(), @view.longitude()</p>
+            <p class="dash-muted">Viewing: arrange a time using protected chat.</p>
+            <p><a class="btn sm" href="https://www.google.com/maps?q=@view.latitude(),@view.longitude()" target="_blank" rel="noopener noreferrer">Open directions</a></p>
+          </div>
+        }
+
+        @if(view.kind().slug() == "video") {
+          @if(view.videos().isEmpty()) {
+            <p class="dash-muted">No video is available.</p>
+          }
+          @for(url <- view.videos()) {
+            <video class="ul-video" src="@url" controls preload="metadata" controlsList="nodownload" playsinline></video>
+          }
+        }
+
+      } else {
+
+        <h1 class="dash-title">@view.kind().lockedTitle()</h1>
+        <p class="dash-sub">@view.kind().lockedSub()</p>
+
+        <div class="dash-card">
+          @for(line <- view.kind().lockedBody().split("\n")) {
+            <p>@line</p>
+          }
+        </div>
+
+        @if(view.priceUnavailable() && !view.loadFailed()) {
+          <p class="dash-muted">Prices are not available right now. Please try again in a moment.</p>
+        }
+
+        @if(!view.priceUnavailable() && !view.loadFailed()) {
+          <form action="/dashboard/homes/@view.source()/@view.id()/unlock/@view.kind().slug()" method="post">
+            @helper.CSRF.formField
+            <input type="hidden" name="key" value="@view.key()">
+            <button class="btn" type="submit">Continue · @view.price()</button>
+          </form>
+        }
+
+        <p><a href="/dashboard/homes/@view.source()/@view.id()">Not now</a></p>
+      }
+
+    </div>
+  </section>
+
+}

@@ -159,7 +159,7 @@ public class PhotoController extends Controller {
 
     /** Back to the profile with a short message, saving renewed tokens if there are any. */
     private static Result finish(Http.Request request, String newAccess, String newRefresh, boolean success) {
-        Result back = redirect("/dashboard/account").flashing("photo", success ? "ok" : "failed");
+        Result back = redirect("/dashboard/profile").flashing("photo", success ? "ok" : "failed");
         if (newAccess != null) {
             Map<String, String> session = new HashMap<>(request.session().data());
             session.put("accessToken", newAccess);

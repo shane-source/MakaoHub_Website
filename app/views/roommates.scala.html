@@ -1,0 +1,97 @@
+@(role: String, p: models.RoommatesPage)(implicit request: Http.Request)
+
+@main("Roommates | Makao Hub") {
+
+<section class="dash">
+  <div class="dash-wrap">
+
+    @dashTabs(role, "roommates")
+
+    @if(request.flash().get("ap").orElse("") == "done") {
+    <p class="pf-flash" role="status">Done.</p>
+    }
+    @if(request.flash().get("ap").orElse("") == "failed") {
+    <p class="form-error" role="alert">@request.flash().get("apmsg").orElse("We couldn't update this interest. Please try again.")</p>
+    }
+    @if(request.flash().get("rm").orElse("") == "saved") {
+    <p class="pf-flash" role="status">Preferences saved.</p>
+    }
+
+    <h1 class="dash-title">Roommate interests</h1>
+    <p class="dash-sub">People interested in your shared spaces.</p>
+
+    @if(!p.interestsLoaded) {
+    <div class="dash-card"><b>Roommate interests are unavailable.</b><p class="dash-muted">Refresh the page to try again.</p></div>
+    } else if(p.interests.isEmpty()) {
+    <p class="dash-muted">No roommate interests yet.</p>
+    }
+
+    @for(i <- p.interests) {
+    <div class="dash-card app-card">
+      <b>@i.listing</b>
+      <p class="st @i.statusClass">@i.status</p>
+      @if(i.open && !i.id.isEmpty) {
+      <div class="lst-actions">
+        <form action="/dashboard/roommates/interests/@i.id/accept" method="post">
+          @helper.CSRF.formField
+          <button class="btn sm" type="submit">Accept interest</button>
+        </form>
+        <form action="/dashboard/roommates/interests/@i.id/decline" method="post"
+              onsubmit="return confirm('Decline this interest?')">
+          @helper.CSRF.formField
+          <button class="btn ghost sm" type="submit">Decline interest</button>
+        </form>
+      </div>
+      }
+      @if(i.accepted) {
+      <p><a class="btn ghost sm" href="/dashboard/messages">Open protected conversations</a></p>
+      }
+    </div>
+    }
+
+    <div class="dash-headrow">
+      <h2 class="dash-title">Your housemate preferences</h2>
+    </div>
+    @if(p.hasPreferences) {
+    <div class="dash-card">
+      <p class="dash-muted">@if(p.optedIn) {You're opted in to roommate discovery.} else {Discovery is off.}</p>
+      <p>@p.summary</p>
+    </div>
+    } else {
+    <p class="dash-muted">Tell us what makes a good housemate to find renters who match.</p>
+    }
+    <p><a class="btn ghost sm" href="/dashboard/roommates/preferences">@if(p.hasPreferences) {Edit preferences} else {Set preferences}</a></p>
+
+    <div class="dash-headrow">
+      <h2 class="dash-title">People you may feel at home with</h2>
+    </div>
+    <p class="dash-sub">Opted-in renters. Shared preferences, not AI.</p>
+
+    @if(!p.hasPreferences || !p.optedIn) {
+    <p class="dash-muted">Set your preferences and opt in to discovery to see opted-in renters.</p>
+    } else if(!p.discoveryLoaded) {
+    <p class="dash-muted">Discovery is unavailable. Refresh the page to try again.</p>
+    } else if(p.people.isEmpty()) {
+    <p class="dash-muted">No opted-in renters available yet.</p>
+    }
+
+    @if(p.hasPreferences && p.optedIn) {
+    @for(person <- p.people) {
+    <div class="dash-card app-card">
+      <b>@person.name</b> <span class="app-ver">✓ Verified renter</span>
+      @if(!person.area.isEmpty()) {<p class="dash-muted">@person.area</p>}
+      @if(!person.budget.isEmpty()) {<p class="dash-muted">Budget · @person.budget</p>}
+      @if(!person.traits.isEmpty()) {<p class="dash-muted">@person.traits</p>}
+      @if(!person.id.isEmpty) {<p><a class="btn ghost sm" href="/dashboard/roommates/people/@person.id">View roommate profile</a></p>}
+    </div>
+    }
+    <p>
+      @if(p.page > 0) {<a class="btn ghost sm" href="/dashboard/roommates?page=@(p.page - 1)">Previous</a>}
+      @if(p.hasNext) {<a class="btn ghost sm" href="/dashboard/roommates?page=@(p.page + 1)">Load more</a>}
+    </p>
+    }
+
+  </div>
+</section>
+
+}

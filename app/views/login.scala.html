@@ -1,4 +1,4 @@
-@(role: String, label: String, error: String, email: String)(implicit request: Http.Request)
+@(role: String, label: String, error: String, email: String, googleClientId: String)(implicit request: Http.Request)
 
 @main("Sign in | Makao Hub") {
 
@@ -16,23 +16,25 @@
           <p class="form-error" role="alert">@error</p>
         }
 
-        <form class="form" action="/login" method="post">
+        <form id="login-form" class="form" action="/login" method="post">
           @helper.CSRF.formField
           <input type="hidden" name="role" value="@role">
           <div class="role-chosen">
             <span>Signing in as</span>
             <b>@label</b>
-            <a href="/get-started?mode=login">Change</a>
+            <a href="/get-started?mode=login&change=1">Change</a>
           </div>
 
           <div class="form-row">
             <label for="email">Email</label>
-            <input id="email" name="email" type="email" autocomplete="email" value="@email" required>
+            <input id="email" name="email" type="email" autocomplete="email" value="@email" required aria-describedby="email-msg">
+            <p class="msg" id="email-msg" aria-live="polite"></p>
           </div>
 
           <div class="form-row">
             <label for="password">Password</label>
-            <input id="password" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+            <input id="password" name="password" type="password" autocomplete="current-password" maxlength="72" required aria-describedby="password-msg">
+            <p class="msg" id="password-msg" aria-live="polite"></p>
           </div>
 
           <a class="forgot" href="/forgot">Forgot password?</a>
@@ -40,9 +42,13 @@
           <button class="btn block" type="submit">Sign in</button>
         </form>
 
+        @googleButton(googleClientId, role, "login")
+
         <p class="switch">New to Makao Hub? <a href="/get-started">Create an account</a></p>
       </div>
     </div>
   </section>
+
+  <script src="@routes.Assets.versioned("javascripts/login.js")" defer></script>
 
 }

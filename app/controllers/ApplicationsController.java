@@ -30,7 +30,7 @@ public class ApplicationsController extends Controller {
         if (role == null) return DashSupport.done(DashSupport.toSignIn());
 
         int limit = DashSupport.limit(show);
-        if (role.equals("RENTER")) return renter(request, limit);
+        if (role.equals("RENTER")) return renter(request, limit, hidden != null && hidden);
         return owner(request, role, hidden != null && hidden, limit);
     }
 
@@ -64,8 +64,11 @@ public class ApplicationsController extends Controller {
                     }
                 }
                 Set<String> hiddenIds = new HashSet<>();
+                Map<String, String> remarks = new HashMap<>();
                 for (JsonNode note : notes) {
                     if (note.path("hidden").asBoolean(false)) hiddenIds.add(note.path("applicationId").asText(""));
+                    String remark = note.path("remark").asText("");
+                    if (!remark.isEmpty()) remarks.put(note.path("applicationId").asText(""), remark);
                 }
 
                 List<JsonNode> shown = new ArrayList<>();
@@ -89,7 +92,7 @@ public class ApplicationsController extends Controller {
                     String status = application.path("status").asText("");
                     String title = titles.get(application.path("listingId").asText(""));
                     String name = application.path("renterName").asText("");
-                    page.rows.add(new ApplicationsPage.Row(
+                    ApplicationsPage.Row ownerRow = new ApplicationsPage.Row(
                             (title == null || title.isEmpty()) ? "Listing unavailable" : title,
                             name.isEmpty() ? "Applicant name unavailable" : name,
                             "VERIFIED".equals(application.path("renterVerificationStatus").asText("")),
@@ -97,7 +100,17 @@ public class ApplicationsController extends Controller {
                             DashSupport.statusClass(status),
                             DashSupport.time(application.path("createdAt").asText("")),
                             application.hasNonNull("rejectionReason")
-                                    ? application.path("rejectionReason").asText() : null));
+                                    ? application.path("rejectionReason").asText() : null);
+                    ownerRow.moveIn = moveIn(application.path("moveInDate").asText(""));
+                    ownerRow.message = application.path("message").asText("");
+                    String photo = application.path("renterAvatarUrl").asText("");
+                    ownerRow.avatar = photo.startsWith("https://") ? photo : "";
+                    String appId = application.path("id").asText("");
+                    ownerRow.id = appId.matches("[A-Za-z0-9-]{1,64}") ? appId : "";
+                    ownerRow.rawStatus = status;
+                    ownerRow.hidden = hiddenView;
+                    ownerRow.remark = remarks.getOrDefault(appId, "");
+                    page.rows.add(ownerRow);
                 }
             }
 
@@ -108,11 +121,12 @@ public class ApplicationsController extends Controller {
 
     // ---------- Renter: their own applications and bookings ----------
 
-    private CompletionStage<Result> renter(Http.Request request, int limit) {
+    private CompletionStage<Result> renter(Http.Request request, int limit, boolean archivedView) {
         List<String> paths = List.of(
                 "/api/v1/renter/applications",
                 "/api/v1/renter/sublessor-applications",
-                "/api/v1/renter/bookings");
+                "/api/v1/renter/bookings",
+                "/api/v1/renter/application-state");
 
         return api.getAll(request, paths).thenApply(batch -> {
             if (batch.expired) return DashSupport.toSignIn();
@@ -120,6 +134,7 @@ public class ApplicationsController extends Controller {
             JsonNode landlord = batch.json.get(0);
             JsonNode shared = batch.json.get(1);
             JsonNode bookings = batch.json.get(2);
+            JsonNode states = batch.json.get(3);
 
             ApplicationsPage page = new ApplicationsPage();
             boolean landlordOk = landlord != null && landlord.isArray();
@@ -134,13 +149,33 @@ public class ApplicationsController extends Controller {
                 if (sharedOk) for (JsonNode a : shared) { all.add(a); kinds.put(a, "Shared home"); }
 
                 all.sort(Comparator.comparing((JsonNode n) -> n.path("updatedAt").asText("")).reversed());
+
+                // The renter's own archive and delete choices, as in the app. Deleted ones never show.
+                Map<String, String> myStates = new HashMap<>();
+                if (states != null && states.isArray()) {
+                    for (JsonNode st : states) {
+                        myStates.put(st.path("kind").asText("") + ":" + st.path("applicationId").asText(""), st.path("state").asText(""));
+                    }
+                }
+                List<JsonNode> keep = new ArrayList<>();
+                int archivedCount = 0;
+                for (JsonNode a : all) {
+                    String kindKey = kinds.get(a).equals("Whole home") ? "LANDLORD" : "SUBLESSOR";
+                    String state = myStates.get(kindKey + ":" + a.path("id").asText(""));
+                    if ("ARCHIVED".equals(state)) archivedCount++;
+                    boolean show = archivedView ? "ARCHIVED".equals(state) : state == null;
+                    if (show) keep.add(a);
+                }
+                all = keep;
+                page.hiddenView = archivedView;
+                page.hiddenCount = archivedCount;
                 page.hasMore = all.size() > limit;
                 page.nextShow = limit + 20;
 
                 for (int i = 0; i < Math.min(limit, all.size()); i++) {
                     JsonNode application = all.get(i);
                     String status = application.path("status").asText("");
-                    page.rows.add(new ApplicationsPage.Row(
+                    ApplicationsPage.Row renterRow = new ApplicationsPage.Row(
                             kinds.get(application),
                             "",
                             false,
@@ -148,7 +183,29 @@ public class ApplicationsController extends Controller {
                             DashSupport.statusClass(status),
                             DashSupport.time(application.path("createdAt").asText("")),
                             application.hasNonNull("rejectionReason")
-                                    ? application.path("rejectionReason").asText() : null));
+                                    ? application.path("rejectionReason").asText() : null);
+                    renterRow.moveIn = moveIn(application.path("moveInDate").asText(""));
+                    renterRow.message = application.path("message").asText("");
+                    String renterAppId = application.path("id").asText("");
+                    renterRow.id = renterAppId.matches("[A-Za-z0-9-]{1,64}") ? renterAppId : "";
+                    renterRow.rawStatus = status;
+                    renterRow.source = kinds.get(application).equals("Whole home") ? "LANDLORD" : "SUBLESSOR";
+                    // A home the renter booked and paid leaves the marketplace, but stays visible to them.
+                    if (bookings != null && bookings.isArray()) {
+                        for (JsonNode b : bookings) {
+                            boolean mine = renterAppId.equals(b.path("sourceApplicationId").asText(""));
+                            boolean paid = b.hasNonNull("releasedAt")
+                                    || b.path("status").asText("").equals("PAID_HELD")
+                                    || b.path("status").asText("").equals("ACTIVE");
+                            String listingId = application.path("listingId").asText("");
+                            if (mine && paid && listingId.matches("[A-Za-z0-9-]{1,64}")) {
+                                renterRow.booked = true;
+                                renterRow.homeHref = "/dashboard/homes/" + renterRow.source + "/" + listingId;
+                                break;
+                            }
+                        }
+                    }
+                    page.rows.add(renterRow);
                 }
             }
 
@@ -170,5 +227,14 @@ public class ApplicationsController extends Controller {
             Result result = ok(views.html.applications.render("RENTER", page, request));
             return DashSupport.applyTokens(result, batch, request);
         });
+    }
+
+    private static String moveIn(String iso) {
+        try {
+            return java.time.LocalDate.parse(iso)
+                    .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH));
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

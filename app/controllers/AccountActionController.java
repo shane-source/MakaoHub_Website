@@ -79,7 +79,7 @@ public class AccountActionController extends Controller {
             body.put("action", code);
             body.put("email", email);
 
-            return api.post(a1, r1, START, body).thenApply(res -> {
+            return api.post(request, a1, r1, START, body).thenApply(res -> {
                 if (res.expired) return redirect(LOGIN).withNewSession();
 
                 boolean renewed = batch.refreshed() || res.refreshed();
@@ -140,7 +140,7 @@ public class AccountActionController extends Controller {
             body.put("code", otp);
             body.put("email", email);
 
-            return api.post(a1, r1, CONFIRM, body).thenApply(res -> {
+            return api.post(request, a1, r1, CONFIRM, body).thenApply(res -> {
                 if (res.expired) return redirect(LOGIN).withNewSession();
                 if (res.ok()) {
                     // Done. The account is closed or being reviewed, so the website session ends here.

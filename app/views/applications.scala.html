@@ -7,13 +7,38 @@
 
       @dashTabs(role, "applications")
 
+      @if(request.flash().get("ap").orElse("") == "no-chat") {
+      <p class="form-error" role="alert">The conversation isn't available yet.</p>
+      }
+      @if(request.flash().get("ap").orElse("") == "done") {
+      <p class="pf-flash" role="status">Done.</p>
+      }
+      @if(request.flash().get("ap").orElse("") == "need-reason") {
+      <p class="form-error" role="alert">Write a short reason (up to 500 characters) before rejecting.</p>
+      }
+      @if(request.flash().get("ap").orElse("") == "failed") {
+      <p class="form-error" role="alert">@request.flash().get("apmsg").orElse("We couldn't update this application. Please try again.")</p>
+      }
+
       @if(role == "RENTER") {
 
         <h1 class="dash-title">Your applications</h1>
         <p class="dash-sub">Keep track of every next step.</p>
+        <p>
+          <a class="btn @(if(!p.hiddenView) "" else "ghost") sm" href="/dashboard/applications">Applications</a>
+          <a class="btn @(if(p.hiddenView) "" else "ghost") sm" href="/dashboard/applications?hidden=true">Archived (@p.hiddenCount)</a>
+        </p>
+
+        @if(p.loaded && !p.hiddenView) {
+        <div class="sum-row">
+          <div class="sum-tile total"><b>@p.rows.size</b><span>Total</span></div>
+          <div class="sum-tile waiting"><b>@(p.rows.filter(r => r.rawStatus == "SUBMITTED" || r.rawStatus == "UNDER_REVIEW").size)</b><span>Waiting</span></div>
+          <div class="sum-tile approved"><b>@(p.rows.filter(r => r.rawStatus == "APPROVED").size)</b><span>Approved</span></div>
+        </div>
+        }
 
         <div class="dash-card">
-          <b>Your bookings and move-in</b>
+          <b>Your bookings and move-in</b> <a class="dash-muted" href="/dashboard/my-bookings">Open bookings</a>
           @if(!p.bookingsLoaded) {
             <p class="dash-muted">Bookings unavailable.</p>
           } else if(p.bookings.isEmpty()) {
@@ -31,15 +56,54 @@
         @if(!p.loaded) {
           <p class="dash-muted">Applications unavailable. Refresh the page to try again.</p>
         } else if(p.rows.isEmpty()) {
-        <p class="dash-muted">No applications yet.</p>
+        <p class="dash-muted">@if(p.hiddenView) {No archived applications.} else {No applications yet.}</p>
         } else {
         @for(row <- p.rows) {
-          <div class="dash-card app-card">
+          <div class="dash-card app-card stripe s-@row.statusClass">
             <b>@row.title</b>
             <p class="st @row.statusClass">@row.status</p>
+            <p class="app-line">@if(row.rawStatus == "REJECTED") {Not approved this time} else if(row.rawStatus == "APPROVED") {Approved} else if(row.rawStatus == "WITHDRAWN") {Withdrawn} else {Waiting for a response}</p>
+            @if(row.booked) {
+            <p class="notice ok">This home was booked by you. It is no longer listed for other renters.
+              <a href="@row.homeHref">View home</a></p>
+            }
             <p class="dash-muted">Submitted @row.submitted</p>
+            @if(!row.moveIn.isEmpty()) {<p class="dash-muted">Wants to move in @row.moveIn</p>}
+            @if(!row.message.isEmpty()) {<p class="dash-muted">Your message: @row.message</p>}
             @if(row.reason != null) {
               <p class="dash-muted">Reason: @row.reason</p>
+            }
+            @if(!row.id.isEmpty && !row.source.isEmpty) {
+            <div class="lst-actions">
+              
+              @if(p.hiddenView) {
+              <form action="/dashboard/applications/@row.id/restore" method="post">
+                @helper.CSRF.formField
+                <input type="hidden" name="source" value="@row.source">
+                <button class="btn ghost sm" type="submit">Move back to my list</button>
+              </form>
+              } else {
+              <form action="/dashboard/applications/@row.id/archive" method="post">
+                @helper.CSRF.formField
+                <input type="hidden" name="source" value="@row.source">
+                <button class="btn ghost sm" type="submit">Archive</button>
+              </form>
+              }
+              <form action="/dashboard/applications/@row.id/delete" method="post"
+                    onsubmit="return confirm('Delete this application? It disappears from your list. The host keeps their record, and a booking in progress cannot be deleted.')">
+                @helper.CSRF.formField
+                <input type="hidden" name="source" value="@row.source">
+                <button class="btn ghost sm" type="submit">Delete</button>
+              </form>
+              @if(!p.hiddenView && (row.rawStatus == "SUBMITTED" || row.rawStatus == "UNDER_REVIEW")) {
+              <form action="/dashboard/applications/@row.id/withdraw" method="post"
+                    onsubmit="return confirm('Withdraw this application? This does not create a refund.')">
+                @helper.CSRF.formField
+                <input type="hidden" name="source" value="@row.source">
+                <button class="btn ghost sm" type="submit">Withdraw application</button>
+              </form>
+              }
+            </div>
             }
           </div>
         }
@@ -50,8 +114,13 @@
 
       } else {
 
-        <h1 class="dash-title">People interested in your @if(role == "LANDLORD") {home} else {shared home}</h1>
-        <p class="dash-sub">Review applications for your own listings.</p>
+        <div class="ll-banner">
+          <span class="ll-banner-ico" aria-hidden="true">&#128196;</span>
+          <div>
+            <h1 class="ll-banner-title">People interested in your @if(role == "LANDLORD") {home} else {shared home}</h1>
+            <p class="ll-banner-sub">Review applications for your own listings.</p>
+          </div>
+        </div>
 
         @if(!p.loaded) {
           <div class="dash-card">
@@ -63,9 +132,9 @@
 
           <p>
             @if(p.hiddenView) {
-              <a class="btn ghost sm" href="/dashboard/applications">Show applications</a>
+              <a class="ll-link" href="/dashboard/applications">Show applications</a>
             } else {
-              <a class="btn ghost sm" href="/dashboard/applications?hidden=true">Hidden applications (@p.hiddenCount)</a>
+              <a class="ll-link" href="/dashboard/applications?hidden=true">Hidden applications (@p.hiddenCount)</a>
             }
           </p>
 
@@ -74,18 +143,63 @@
           }
 
           @for(row <- p.rows) {
-            <div class="dash-card app-card">
+            <div class="dash-card app-card ll-card">
               <div class="app-head">
-                <div>
+                <span class="app-avatar">
+                  @if(!row.avatar.isEmpty) {<img src="@row.avatar" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">} else {<span>@row.applicant.substring(0, 1)</span>}
+                </span>
+                <div class="app-who">
                   <b>@row.applicant</b>
                   @if(row.verified) {<span class="app-ver">✓ Verified renter</span>}
                 </div>
                 <span class="app-listing">@row.title</span>
               </div>
-              <p class="st @row.statusClass">@row.status</p>
-              <p class="dash-muted">Submitted @row.submitted</p>
-              @if(row.reason != null) {
-                <p class="dash-muted">Reason: @row.reason</p>
+              <p class="ll-status @(if(row.rawStatus == "APPROVED") "ok" else "")">@row.status</p>
+              <p class="ll-small">Submitted @row.submitted</p>
+              @if(!row.moveIn.isEmpty()) {<p class="ll-small dark">Wants to move in @row.moveIn</p>}
+              @if(!row.id.isEmpty) {
+              <div class="ll-foot">
+                <details class="ll-view">
+                  <summary>View application</summary>
+                  <div class="ll-view-body">
+                    @if(!row.message.isEmpty()) {<p class="dash-muted">From the renter: @row.message</p>}
+                    @if(row.reason != null) {<p class="dash-muted">Reason: @row.reason</p>}
+                    <div class="lst-actions">
+                      @if(row.rawStatus == "SUBMITTED") {
+                      <form action="/dashboard/applications/@row.id/review" method="post">
+                        @helper.CSRF.formField
+                        <button class="btn sm" type="submit">Mark under review</button>
+                      </form>
+                      }
+                      @if(row.rawStatus == "SUBMITTED" || row.rawStatus == "UNDER_REVIEW") {
+                      <form action="/dashboard/applications/@row.id/approve" method="post"
+                            onsubmit="return confirm('Approve this application?\n\nApproval allows the applicant to continue to booking checkout. Approval does not move money.')">
+                        @helper.CSRF.formField
+                        <button class="btn sm" type="submit">Approve</button>
+                      </form>
+                      }
+                      <form action="/dashboard/applications/@row.id/@(if(row.hidden) "unhide" else "hide")" method="post">
+                        @helper.CSRF.formField
+                        <button class="btn ghost sm" type="submit">@if(row.hidden) {Restore} else {Hide}</button>
+                      </form>
+                    </div>
+                    @if(row.rawStatus == "SUBMITTED" || row.rawStatus == "UNDER_REVIEW") {
+                    <details class="app-reject">
+                      <summary class="dash-muted">Reject with a reason</summary>
+                      <form class="form" action="/dashboard/applications/@row.id/reject" method="post">
+                        @helper.CSRF.formField
+                        <div class="form-row">
+                          <label for="reason-@row.id">Reason sent to the applicant</label>
+                          <textarea id="reason-@row.id" name="reason" rows="3" maxlength="500" required></textarea>
+                        </div>
+                        <button class="btn ghost sm" type="submit">Confirm rejection</button>
+                      </form>
+                    </details>
+                    }
+                  </div>
+                </details>
+                <a class="ll-chat" href="/dashboard/applications/@row.id/chat" aria-label="Open chat" title="Open chat">&#128172;</a>
+              </div>
               }
             </div>
           }

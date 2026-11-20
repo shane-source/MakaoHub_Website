@@ -1,0 +1,57 @@
+@(role: String, view: controllers.PayoutController.PayoutView)(implicit request: Http.Request)
+
+@main("Payout number | Makao Hub") {
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "profile")
+
+        <p class="bk-back"><a href="/dashboard/bookings">&larr; Bookings &amp; payouts</a></p>
+
+        @if(request.flash().get("payout").orElse("") == "saved") {
+        <p class="pf-flash" role="status">Payout number saved.</p>
+        }
+        @if(request.flash().get("payout").orElse("") == "format") {
+        <p class="form-error" role="alert">Enter a Kenyan M-Pesa number in 07XXXXXXXX or 01XXXXXXXX format.</p>
+        }
+        @if(request.flash().get("payout").orElse("") == "own") {
+        <p class="form-error" role="alert">Please confirm this M-Pesa number belongs to you.</p>
+        }
+        @if(request.flash().get("payout").orElse("") == "failed") {
+        <p class="form-error" role="alert">We couldn't save your payout number. Complete owner verification first, then try again.</p>
+        }
+        @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your payout details. Refresh the page to try again.</p>
+        }
+
+        <h1 class="dash-title">Payout number</h1>
+        <p class="dash-sub">Your payout is sent automatically to this M-Pesa number.</p>
+
+        <div class="dash-card dash-row">
+            <b>Payout number</b>
+            <span class="dash-muted">@if(view.configured()) {Saved} else {Not set}</span>
+        </div>
+        <div class="dash-card dash-row">
+            <b>Automatic payout</b>
+            <span class="dash-muted">@if(view.eligible()) {Authorised} else {Not authorised yet}</span>
+        </div>
+
+        @if(!view.verified()) {
+        <p class="dash-muted">Complete owner verification before setting a Payout number.</p>
+        } else {
+        <form class="form po-form" action="/dashboard/payout-number" method="post">
+            @helper.CSRF.formField
+            <div class="form-row">
+                <label for="phone">M-Pesa number</label>
+                <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="07XXXXXXXX" maxlength="14" required>
+            </div>
+            <label class="po-check"><input type="checkbox" name="own" value="yes" required> I confirm this M-Pesa number belongs to me</label>
+            <button class="btn block" type="submit">Save payout number</button>
+        </form>
+        }
+
+    </div>
+</section>
+
+}

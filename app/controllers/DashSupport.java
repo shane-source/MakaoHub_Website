@@ -25,10 +25,29 @@ final class DashSupport {
 
     private static final Set<String> ROLES = Set.of("RENTER", "LANDLORD", "SUBLESSOR");
     private static final DateTimeFormatter KENYA =
-            DateTimeFormatter.ofPattern("d MMM yyyy · h:mm a 'EAT'", Locale.ENGLISH)
+            DateTimeFormatter.ofPattern("d MMM yyyy · h:mm a", Locale.ENGLISH)
                     .withZone(ZoneId.of("Africa/Nairobi"));
 
     private DashSupport() {}
+
+    /** Plain cookie that only remembers which role this browser last signed in as. It holds no credentials. */
+    static final String ROLE_COOKIE = "mk_role";
+
+    /** The role last used to sign in on this browser, or null for a browser we have not seen before. */
+    static String lastRole(Http.Request request) {
+        return request.cookie(ROLE_COOKIE).map(Http.Cookie::value).filter(ROLES::contains).orElse(null);
+    }
+
+    /** Adds the remembered-role cookie to a result (one year, same-site only, not readable by scripts). */
+    static Result rememberRole(Result result, String role) {
+        if (role == null || !ROLES.contains(role)) return result;
+        return result.withCookies(Http.Cookie.builder(ROLE_COOKIE, role)
+                .withPath("/")
+                .withMaxAge(Duration.ofDays(365))
+                .withHttpOnly(true)
+                .withSameSite(Http.Cookie.SameSite.LAX)
+                .build());
+    }
 
     /** The signed-in person's role, or null when they are signed out or the role is unknown. */
     static String roleOf(Http.Request request) {
@@ -93,23 +112,13 @@ final class DashSupport {
         }
     }
 
-    /** "approved" and similar read green, "rejected" red, "waiting" amber. */
+    /** Same look as the app: green when approved, red when not approved, grey when no longer active, amber while waiting. */
     static String statusClass(String status) {
-        switch (status) {
-            case "APPROVED":
-            case "ACCEPTED":
-            case "VERIFIED":
-                return "ok";
-            case "REJECTED":
-            case "WITHDRAWN":
-            case "DECLINED":
-                return "bad";
-            case "SUBMITTED":
-            case "UNDER_REVIEW":
-                return "warn";
-            default:
-                return "";
-        }
+        String s = status == null ? "" : status.toUpperCase();
+        if (s.contains("REJECT") || s.contains("DECLIN") || s.contains("FAIL")) return "bad";
+        if (s.contains("APPROV") || s.contains("ACCEPT") || s.contains("ACTIVE") || s.contains("VERIFIED") || s.contains("SUCCEED")) return "ok";
+        if (s.contains("WITHDRAW") || s.contains("CANCEL") || s.contains("EXPIRE")) return "grey";
+        return "warn";
     }
 
     /** Cards for one page of /renter/homes. */

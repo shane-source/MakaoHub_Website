@@ -35,12 +35,15 @@ public class MessagesController extends Controller {
             .withZone(ZoneId.of("Africa/Nairobi"));
 
     /** One conversation in the inbox. An empty href means it can't be opened. */
-    public record Chat(String title, String preview, long unread, String kind, String href) {}
+    public record Chat(String title, String preview, long unread, String kind, String href,
+                       String slug, String id, boolean archived, String date) {}
 
-    public record MessagesView(List<Chat> chats, boolean loadFailed) {}
+    public record MessagesView(List<Chat> chats, boolean loadFailed, boolean showArchived,
+                               int archivedCount, String query) {}
 
     /** One message inside a conversation. */
-    public record Msg(String id, String text, String time, boolean mine, boolean delivered, boolean masked) {}
+    public record Msg(String id, String text, String time, boolean mine, boolean delivered, boolean masked,
+                      long sentMillis) {}
 
     public record ThreadView(
             String title,
@@ -49,6 +52,8 @@ public class MessagesController extends Controller {
             String channel,
             boolean open,
             String olderUrl,
+            String slug,
+            boolean archived,
             boolean hasOlder,
             String nextCursor,
             List<Msg> messages,
@@ -63,35 +68,61 @@ public class MessagesController extends Controller {
 
     // ---------- Inbox ----------
 
-    public CompletionStage<Result> index(Http.Request request) {
+    public CompletionStage<Result> index(Http.Request request, String tab, String q) {
         String role = roleOf(request);
         if (role.isEmpty()) {
             return CompletableFuture.completedFuture(redirect("/get-started?mode=login"));
         }
 
-        List<String> paths = pathsFor(role);
+        boolean showArchived = "archived".equals(tab);
+        String query = q == null ? "" : q.trim();
+        if (query.length() > 100) query = query.substring(0, 100);
+        final String search = query;
+
+        List<String> threadPaths = pathsFor(role);
+        List<String> paths = new ArrayList<>(threadPaths);
+        paths.add(statePath(role));
 
         return api.getAll(request, paths).thenApply(batch -> {
             if (batch.expired) {
                 return redirect("/get-started?mode=login").withNewSession();
             }
 
+            Map<String, JsonNode> states = stateMap(batch.json.get(threadPaths.size()));
             List<Chat> chats = new ArrayList<>();
             boolean anyLoaded = false;
+            int archivedCount = 0;
 
-            for (int i = 0; i < paths.size(); i++) {
+            for (int i = 0; i < threadPaths.size(); i++) {
                 JsonNode json = batch.json.get(i);
                 if (json == null) continue;
                 anyLoaded = true;
 
-                boolean roommate = paths.get(i).contains("roommate-chat");
+                boolean roommate = threadPaths.get(i).contains("roommate-chat");
                 String slug = roommate ? "roommate" : "home";
                 String label = roommate ? "Roommate chat" : "Home enquiry";
+                String stateKind = roommate ? "ROOMMATE" : "RENTAL";
 
                 for (JsonNode n : listOf(json)) {
                     String id = idOf(n);
+                    String placement = placement(states.get(stateKind + ":" + id), n.path("lastMessageAt").asText(""));
+                    if (placement.equals("DELETED")) continue;
+                    boolean archived = placement.equals("ARCHIVED");
+                    if (archived) archivedCount++;
+                    if (archived != showArchived) continue;
+
+                    String title = title(n);
+                    String preview = preview(n);
+                    if (!search.isEmpty()
+                            && !(title + " " + preview + " " + n.path("status").asText(""))
+                                    .toLowerCase(Locale.ROOT).contains(search.toLowerCase(Locale.ROOT))) {
+                        continue;
+                    }
+
                     String href = isSafeId(id) ? "/dashboard/messages/" + slug + "/" + id : "";
-                    chats.add(new Chat(title(n), preview(n), n.path("unreadCount").asLong(0), label, href));
+                    chats.add(new Chat(title, preview, n.path("unreadCount").asLong(0), label, href,
+                            slug, isSafeId(id) ? id : "", archived,
+                            day(n.path("lastMessageAt").asText(""))));
                 }
             }
 
@@ -99,7 +130,46 @@ public class MessagesController extends Controller {
             chats.sort(Comparator.comparingLong(Chat::unread).reversed());
 
             return withFreshSession(request, batch,
-                    ok(views.html.messages.render(role, new MessagesView(chats, !anyLoaded), request)));
+                    ok(views.html.messages.render(role,
+                            new MessagesView(chats, !anyLoaded, showArchived, archivedCount, search), request)));
+        });
+    }
+
+    // ---------- Archive, restore and delete (this person's own view only) ----------
+
+    public CompletionStage<Result> changeState(Http.Request request, String kind, String id) {
+        String role = roleOf(request);
+        if (role.isEmpty()) {
+            return CompletableFuture.completedFuture(redirect("/get-started?mode=login"));
+        }
+        if (!isSafeId(id) || !allowed(role, kind)) {
+            return CompletableFuture.completedFuture(redirect("/dashboard/messages"));
+        }
+
+        Map<String, String[]> form = request.body().asFormUrlEncoded();
+        String state = form == null || form.get("state") == null || form.get("state").length == 0
+                ? "" : form.get("state")[0];
+        if (!Set.of("ARCHIVED", "ACTIVE", "DELETED").contains(state)) {
+            return CompletableFuture.completedFuture(redirect("/dashboard/messages"));
+        }
+
+        String stateKind = kind.equals("roommate") ? "ROOMMATE" : "RENTAL";
+        String path = statePath(role) + "/" + stateKind + "/" + id;
+        ObjectNode body = Json.newObject();
+        body.put("state", state);
+
+        return api.put(request, path, body).thenApply(result -> {
+            if (result.expired) {
+                return redirect("/get-started?mode=login").withNewSession();
+            }
+            Result next = redirect("/dashboard/messages");
+            if (result.refreshed()) {
+                Map<String, String> session = new HashMap<>(request.session().data());
+                session.put("accessToken", result.accessToken);
+                session.put("refreshToken", result.refreshToken);
+                next = next.withSession(session);
+            }
+            return next;
         });
     }
 
@@ -118,7 +188,7 @@ public class MessagesController extends Controller {
         boolean roommate = kind.equals("roommate");
         String base = threadsBase(role, roommate);
 
-        List<String> paths = List.of("/api/v1/profile/me", base + "/" + id + "/messages", base);
+        List<String> paths = List.of("/api/v1/profile/me", base + "/" + id + "/messages", base, statePath(role));
 
         return api.getAll(request, paths).thenApply(batch -> {
             if (batch.expired) {
@@ -128,6 +198,14 @@ public class MessagesController extends Controller {
             JsonNode me = batch.json.get(0);
             JsonNode messages = batch.json.get(1);
             JsonNode threads = batch.json.get(2);
+            JsonNode thisState = stateMap(batch.json.get(3)).get((roommate ? "ROOMMATE" : "RENTAL") + ":" + id);
+            String lastAt = "";
+            if (threads != null) {
+                for (JsonNode n : listOf(threads)) {
+                    if (idOf(n).equals(id)) { lastAt = n.path("lastMessageAt").asText(""); break; }
+                }
+            }
+            boolean archivedNow = placement(thisState, lastAt).equals("ARCHIVED");
 
             String myId = me == null ? "" : me.path("id").asText("");
 
@@ -155,9 +233,11 @@ public class MessagesController extends Controller {
                     roommate ? "ROOMMATE" : "RENTAL",
                     open,
                     "/dashboard/messages/" + (roommate ? "roommate" : "home") + "/" + id + "/older",
+                    roommate ? "roommate" : "home",
+                    archivedNow,
                     hasOlder,
                     nextCursor,
-                    toMessages(messages, myId),
+                    afterDelete(toMessages(messages, myId), thisState),
                     messages == null);
 
             return withFreshSession(request, batch, ok(views.html.thread.render(role, view, request)));
@@ -179,10 +259,12 @@ public class MessagesController extends Controller {
         String path = base + "/" + id + "/messages?" + CURSOR_PARAM + "="
                 + URLEncoder.encode(cursor, StandardCharsets.UTF_8);
 
-        return api.getAll(request, List.of("/api/v1/profile/me", path)).thenApply(batch -> {
+        String stateKind = kind.equals("roommate") ? "ROOMMATE" : "RENTAL";
+        return api.getAll(request, List.of("/api/v1/profile/me", path, statePath(role))).thenApply(batch -> {
             if (batch.expired) {
                 return unauthorized(error("expired"));
             }
+            JsonNode olderState = stateMap(batch.json.get(2)).get(stateKind + ":" + id);
             JsonNode me = batch.json.get(0);
             JsonNode page = batch.json.get(1);
             if (page == null) {
@@ -194,7 +276,7 @@ public class MessagesController extends Controller {
             boolean hasNext = page.path("hasNext").asBoolean(false) && !nextCursor.isEmpty();
 
             ArrayNode list = Json.newArray();
-            for (Msg m : toMessages(page, myId)) {
+            for (Msg m : afterDelete(toMessages(page, myId), olderState)) {
                 ObjectNode node = Json.newObject();
                 node.put("id", m.id());
                 node.put("text", m.text());
@@ -211,6 +293,53 @@ public class MessagesController extends Controller {
             reply.put("nextCursor", hasNext ? nextCursor : "");
             return withFreshSession(request, batch, ok(reply));
         });
+    }
+
+
+    // ---------- Archive and delete helpers ----------
+
+    private static String statePath(String role) {
+        return "/api/v1/" + role.toLowerCase(Locale.ROOT) + "/chat-state";
+    }
+
+    /** The person's own archived or deleted conversations, keyed by "KIND:threadId". */
+    private static Map<String, JsonNode> stateMap(JsonNode json) {
+        Map<String, JsonNode> map = new HashMap<>();
+        if (json == null) return map;
+        for (JsonNode n : listOf(json)) {
+            map.put(n.path("kind").asText("") + ":" + n.path("threadId").asText(""), n);
+        }
+        return map;
+    }
+
+    private static long millis(String iso) {
+        try {
+            return java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli();
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    /** A message that arrives after archiving or deleting brings the conversation back to the inbox. */
+    private static String placement(JsonNode state, String lastMessageAt) {
+        if (state == null) return "ACTIVE";
+        long last = millis(lastMessageAt);
+        long changed = millis(state.path("changedAt").asText(""));
+        if (last >= 0 && changed >= 0 && last > changed) return "ACTIVE";
+        String value = state.path("state").asText("ACTIVE");
+        return value.isEmpty() ? "ACTIVE" : value;
+    }
+
+    /** After a delete, anything sent before it stays hidden even if the conversation comes back. */
+    private static List<Msg> afterDelete(List<Msg> items, JsonNode state) {
+        if (state == null) return items;
+        long cleared = millis(state.path("clearedAt").asText(""));
+        if (cleared < 0) return items;
+        List<Msg> kept = new ArrayList<>();
+        for (Msg m : items) {
+            if (m.sentMillis() > cleared) kept.add(m);
+        }
+        return kept;
     }
 
     // ---------- Helpers ----------
@@ -244,7 +373,8 @@ public class MessagesController extends Controller {
                     clock(n.path("createdAt").asText("")),
                     mine,
                     delivered,
-                    n.path("contactMasked").asBoolean(false)));
+                    n.path("contactMasked").asBoolean(false),
+                    instantMillis(n.path("createdAt").asText(""))));
         }
         return list;
     }
@@ -317,6 +447,26 @@ public class MessagesController extends Controller {
             if (!value.isEmpty()) return value;
         }
         return "";
+    }
+
+    private static long instantMillis(String iso) {
+        try {
+            return Instant.parse(iso).toEpochMilli();
+        } catch (Exception e) {
+            long value = millis(iso);
+            return value < 0 ? Long.MAX_VALUE : value;
+        }
+    }
+
+    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+            .withZone(ZoneId.of("Africa/Nairobi"));
+
+    private static String day(String iso) {
+        try {
+            return DAY.format(Instant.parse(iso));
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     /** Kenyan time, like the app. */

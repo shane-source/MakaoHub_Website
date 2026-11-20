@@ -1,19 +1,28 @@
 @main("Makao Hub | Find a home that fits your life") {
 
-    <section class="hero">
+    <section class="hero hero-bold">
+        <div class="hero-blob b1" aria-hidden="true"></div>
+        <div class="hero-blob b2" aria-hidden="true"></div>
         <div class="hero-grid">
-            <div class="hero-copy">
-                <span class="eyebrow">Verified homes across Kenya</span>
-                <h1>Find a home that fits your life.</h1>
+            <div class="hero-copy rise">
+                <span class="eyebrow pill">Verified homes across Kenya</span>
+                <h1>Find a home that <span class="hl">fits your life.</span></h1>
                 <p class="lead">Whole homes and rooms with good company in Nairobi, Mombasa and beyond. Verified people, clear rent, and payments you can trust.</p>
                 <div class="actions">
-                    <a class="btn" href="/register">Get started</a>
-                    <a class="btn ghost" href="#how">See how it works</a>
+                    <a class="btn big glow" href="/register">Get started</a>
+                    <a class="btn big ghost" href="#how">See how it works</a>
                 </div>
+                <ul class="chips" aria-label="What you get">
+                    <li>&#10003; Verified hosts</li>
+                    <li>&#10003; Masked chat</li>
+                    <li>&#10003; Protected payments</li>
+                </ul>
             </div>
 
-            <div class="hero-media">
+            <div class="hero-media rise d2">
                 <img class="main" src="@routes.Assets.versioned("images/photo1.jpg")" alt="A bright living room with a balcony view">
+                <div class="float-card fc1"><span class="fc-ico">&#10003;</span><div><b>Verified host</b><small>Identity checked</small></div></div>
+                <div class="float-card fc2"><span class="fc-ico">&#128274;</span><div><b>Rent held safely</b><small>Released after move-in</small></div></div>
             </div>
         </div>
     </section>
@@ -54,7 +63,7 @@
 
             <div class="roles">
                 <article class="role">
-                    <h3>Renter</h3>
+                    <span class="role-ico" aria-hidden="true">&#128273;</span><h3>Renter</h3>
                     <p>Find a whole home or a shared space.</p>
                     <ul>
                         <li>Browse verified listings</li>
@@ -65,7 +74,7 @@
                 </article>
 
                 <article class="role">
-                    <h3>Landlord</h3>
+                    <span class="role-ico" aria-hidden="true">&#127969;</span><h3>Landlord</h3>
                     <p>List whole properties or units and review applications.</p>
                     <ul>
                         <li>Verified landlord profile</li>
@@ -76,7 +85,7 @@
                 </article>
 
                 <article class="role">
-                    <h3>Sublessor</h3>
+                    <span class="role-ico" aria-hidden="true">&#128715;</span><h3>Sublessor</h3>
                     <p>List a spare room or servant quarter and find roommates.</p>
                     <ul>
                         <li>Share your space with good company</li>
@@ -122,7 +131,7 @@
         </div>
     </section>
 
-    <section class="section cta">
+    <section class="section cta cta-bold">
         <div class="container">
             <h2>Ready to find your place?</h2>
             <p>Create your account in a minute and start with the role that fits you.</p>

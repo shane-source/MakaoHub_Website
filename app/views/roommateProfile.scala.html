@@ -1,0 +1,40 @@
+@(role: String, f: models.RoommatesPage.Profile)(implicit request: Http.Request)
+
+@main("Roommate profile | Makao Hub") {
+
+<section class="dash">
+  <div class="dash-wrap">
+
+    @dashTabs(role, "roommates")
+
+    <p class="bk-back"><a href="/dashboard/roommates">&larr; Roommates</a></p>
+
+    @if(!f.loaded) {
+    <p class="form-error" role="alert">We couldn't load this profile. Go back and try again.</p>
+    } else {
+    <h1 class="dash-title">Meet @(f.name.split(" ")(0))</h1>
+    <p class="dash-sub">@if(!f.area.isEmpty()) {@f.area} else {Opted-in roommate profile}</p>
+    <p><span class="app-ver">✓ Verified renter</span></p>
+
+    <div class="dash-card">
+      <b>A little about me</b>
+      @if(!f.about.isEmpty()) {<p>@f.about</p>}
+      @if(!f.employment.isEmpty()) {<p class="dash-muted">@f.employment</p>}
+      @if(!f.moveIn.isEmpty()) {<p class="dash-muted">Move-in · @f.moveIn</p>}
+      @if(!f.budget.isEmpty()) {<p class="dash-muted">Budget · @f.budget</p>}
+    </div>
+
+    <div class="dash-card">
+      <b>Preference comparison</b>
+      <p class="dash-muted">Same: @if(f.same.isEmpty()) {No shared answers} else {@String.join(" · ", f.same)}</p>
+      <p class="dash-muted">Different: @if(f.different.isEmpty()) {No different answers} else {@String.join(" · ", f.different)}</p>
+      <p class="dash-muted">A percentage is not shown until the matching weights are agreed.</p>
+    </div>
+
+    <p><a class="btn ghost sm" href="/dashboard/messages">Open protected conversations</a></p>
+    }
+
+  </div>
+</section>
+
+}

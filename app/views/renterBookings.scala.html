@@ -1,0 +1,90 @@
+@(role: String, view: controllers.RenterBookingsController.BookingsView)(implicit request: Http.Request)
+
+@main("Bookings | Makao Hub") {
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "applications")
+
+        <p class="bk-back"><a href="/dashboard/applications">&larr; Applications</a></p>
+
+        @if(request.flash().get("rb").orElse("") == "agreement-ok") {
+        <p class="pf-flash" role="status">Booking terms confirmed.</p>
+        }
+        @if(request.flash().get("rb").orElse("") == "movein-yes") {
+        <p class="pf-flash" role="status">Thanks. Your move-in is confirmed.</p>
+        }
+        @if(request.flash().get("rb").orElse("") == "movein-no") {
+        <p class="pf-flash" role="status">Noted. Your payment stays held.</p>
+        }
+        @if(request.flash().get("rb").orElse("") == "failed") {
+        <p class="form-error" role="alert">That step isn't available for this booking yet. Refresh the page and try again.</p>
+        }
+
+        @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your bookings. Refresh the page to try again.</p>
+        }
+
+        <h1 class="dash-title">Bookings</h1>
+        <p class="dash-sub">What you paid, who agreed, and where your payment stands.</p>
+
+        @if(view.rows().isEmpty() && !view.loadFailed()) {
+        <div class="dash-card">
+            <b>No bookings yet.</b>
+            <p class="dash-muted">When an owner accepts your application and you book, it will appear here.</p>
+        </div>
+        }
+
+        @for(row <- view.rows()) {
+        <div class="dash-card bk-card">
+            <div class="bk-hero @(if(row.released()) "ok" else "held")">
+                <b>@(if(row.released()) "Payment released" else "Payment held")</b>
+                <span>@row.title()</span>
+            </div>
+
+            <div class="bk-steps">
+                <div class="bk-step @(if(row.paid()) "done" else "")"><i>@(if(row.paid()) "✓" else "")</i><span>Paid</span></div>
+                <div class="bk-step @(if(row.ownerConfirmed()) "done" else "")"><i>@(if(row.ownerConfirmed()) "✓" else "")</i><span>Owner confirms</span></div>
+                <div class="bk-step @(if(row.youConfirmed()) "done" else if(row.ownerConfirmed()) "now" else "")"><i>@(if(row.youConfirmed()) "✓" else if(row.ownerConfirmed()) "…" else "")</i><span>You confirm</span></div>
+                <div class="bk-step @(if(row.released()) "done" else "")"><i>@(if(row.released()) "✓" else "")</i><span>Released</span></div>
+            </div>
+
+            <div class="bk-money">
+                <p class="bk-state">● @row.state()</p>
+                <p><span>Rent</span><b>@row.rent()</b></p>
+                <p><span>Deposit</span><b>@row.deposit()</b></p>
+                <p><span>Makao Hub fee</span><b>@row.fee()</b></p>
+                <p class="bk-sum"><span>Total</span><b>@row.total()</b></p>
+            </div>
+
+            @if(!row.owner().isEmpty()) {<p class="dash-muted">@row.owner() · @row.status()</p>}
+            <p class="bk-line">@row.agreement()</p>
+            @if(!row.moveIn().isEmpty()) {<p class="bk-line">@row.moveIn()</p>}
+            <p class="bk-line">@row.payout()</p>
+
+            @if(row.canAgree()) {
+            <form class="bk-form" action="/dashboard/my-bookings/@row.id()/agreement" method="post">
+                @helper.CSRF.formField
+                <button class="btn sm" type="submit">Confirm booking terms</button>
+            </form>
+            }
+            @if(row.canAnswer()) {
+            <div class="bk-ask">
+                <b>Did you move in?</b>
+                <p class="dash-muted">The owner says you have moved in. Answer True only if that is correct. True releases your payment to the owner. False keeps your money safely held and our team will review.</p>
+                <form class="bk-form" action="/dashboard/my-bookings/@row.id()/move-in" method="post">
+                    @helper.CSRF.formField
+                    <button class="btn sm" type="submit" name="answer" value="yes">True, I moved in</button>
+                    <button class="btn sm ghost" type="submit" name="answer" value="no">False, I have not moved in</button>
+                    <a class="btn sm ghost" href="/dashboard/applications">Later</a>
+                </form>
+            </div>
+            }
+        </div>
+        }
+
+    </div>
+</section>
+
+}

@@ -30,6 +30,7 @@
       }
 
       <p class="md-count">@v.images() @if(v.images() == 1) {photo} else {photos} · @v.videos() @if(v.videos() == 1) {video} else {videos}</p>
+      <p class="md-next"><a href="/dashboard/listings/@v.id()/location">Next: set the location &rarr;</a></p>
 
       @if(v.editable()) {
         <form class="md-form" action="@helper.CSRF(routes.ListingMediaController.upload(v.id()))" method="post" enctype="multipart/form-data">
@@ -66,6 +67,14 @@
                     @helper.CSRF.formField
                     <button class="btn sm" type="submit">Confirm stored upload</button>
                   </form>
+                }
+                @if(!row.video()) {
+                <form class="md-act" action="@helper.CSRF(routes.ListingMediaController.replace(v.id(), row.id()))" method="post" enctype="multipart/form-data">
+                  <label class="btn ghost sm">Replace photo
+                    <input type="file" name="file" accept="image/jpeg,image/png,image/webp" hidden
+                           onchange="this.form.submit()">
+                  </label>
+                </form>
                 }
                 <form class="md-act" action="/dashboard/listings/@v.id()/photos/@row.id()/delete" method="post"
                       onsubmit="return confirm('Remove this file?')">

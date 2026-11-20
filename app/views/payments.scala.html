@@ -1,0 +1,58 @@
+@(role: String, view: controllers.PaymentsController.PaymentsView)(implicit request: Http.Request)
+
+@main("Payment history | Makao Hub") {
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "profile")
+
+        <p class="bk-back"><a href="/dashboard/profile">&larr; Profile</a></p>
+
+        @if(request.flash().get("pay").orElse("") == "checked") {
+        <p class="pf-flash" role="status">Payment checked. The status below is up to date.</p>
+        }
+        @if(request.flash().get("pay").orElse("") == "failed") {
+        <p class="form-error" role="alert">We couldn't check that payment yet. Please try again in a moment.</p>
+        }
+        @if(!view.loaded()) {
+        <p class="form-error" role="alert">We couldn't load your payments. Refresh the page to try again.</p>
+        }
+
+        <h1 class="dash-title">Payment history</h1>
+        <p class="dash-sub">Every payment you have made on Makao Hub.</p>
+
+        @if(view.rows().isEmpty() && view.loaded()) {
+        <div class="dash-card">
+            <b>No payments yet.</b>
+        </div>
+        }
+
+        @for(row <- view.rows()) {
+        <div class="dash-card bk-card">
+            <div class="bk-top">
+                <b>@row.what()</b>
+                <span class="pill @row.look()">@row.status()</span>
+            </div>
+            <p class="bk-total">@row.amount()</p>
+            @if(!row.when().isEmpty()) {<p class="dash-muted">@row.when()</p>}
+            @if(row.canCheck()) {
+            <form class="bk-form" action="/dashboard/payments/check" method="post">
+                @helper.CSRF.formField
+                <input type="hidden" name="reference" value="@row.reference()">
+                <button class="btn sm" type="submit">Check payment</button>
+            </form>
+            <p class="dash-muted">Already paid? Check it before paying again.</p>
+            }
+        </div>
+        }
+
+        <p>
+            @if(view.page() > 0) {<a class="btn ghost sm" href="/dashboard/payments?page=@(view.page() - 1)">Newer</a>}
+            @if(view.hasNext()) {<a class="btn ghost sm" href="/dashboard/payments?page=@(view.page() + 1)">Older</a>}
+        </p>
+
+    </div>
+</section>
+
+}

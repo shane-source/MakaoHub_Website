@@ -1,0 +1,41 @@
+@(role: String, source: String, id: String)(implicit request: Http.Request)
+
+@main("Report this listing | Makao Hub") {
+
+<section class="dash">
+  <div class="dash-wrap">
+
+    @dashTabs(role, "browse")
+
+    <p class="hm-back"><a href="/dashboard/homes/@source/@id">&larr; Back to the home</a></p>
+
+    @if(request.flash().get("rp").orElse("") == "invalid") {
+    <p class="form-error" role="alert">Choose a reason and tell us more (up to 1000 characters).</p>
+    }
+    @if(request.flash().get("rp").orElse("") == "failed") {
+    <p class="form-error" role="alert">We couldn't send your report. Please try again.</p>
+    }
+
+    <h1 class="dash-title">Report this listing</h1>
+    <p class="dash-sub">Your report is private. Staff review the listing and keep an audit record. The host is not shown your identity.</p>
+
+    <form class="form" action="/dashboard/homes/@source/@id/report" method="post">
+      @helper.CSRF.formField
+      <div class="form-row">
+        <label><input type="radio" name="category" value="MISLEADING_CONTENT" required> Misleading photos or description</label>
+        <label><input type="radio" name="category" value="PAYMENT_REQUEST"> Suspicious request for money</label>
+        <label><input type="radio" name="category" value="UNSAFE_CONTENT"> Unsafe or inappropriate content</label>
+        <label><input type="radio" name="category" value="OTHER"> Other concern</label>
+      </div>
+      <div class="form-row">
+        <label for="description">Tell us more</label>
+        <textarea id="description" name="description" rows="4" maxlength="1000" required></textarea>
+      </div>
+      <p class="dash-muted">Do not include identity numbers, contact details or private documents.</p>
+      <button class="btn" type="submit">Submit report</button>
+    </form>
+
+  </div>
+</section>
+
+}

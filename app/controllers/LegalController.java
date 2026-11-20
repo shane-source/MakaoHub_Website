@@ -27,4 +27,14 @@ public class LegalController extends Controller {
         }
         return ok(views.html.privacyAccount.render(role, request));
     }
+
+    /** The signed-in Appearance page. The choice is saved on this device only. */
+    public Result appearance(Http.Request request) {
+        boolean signedIn = request.session().get("accessToken").isPresent();
+        String role = request.session().get("role").orElse("");
+        if (!signedIn || !ROLES.contains(role)) {
+            return redirect("/get-started?mode=login");
+        }
+        return ok(views.html.appearance.render(role, request));
+    }
 }

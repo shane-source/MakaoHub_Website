@@ -30,7 +30,7 @@
 
     function clock(iso) {
         try {
-            return new Date(iso).toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit", timeZone: "Africa/Nairobi" });
+            return new Date(iso).toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Africa/Nairobi" });
         } catch (e) { return ""; }
     }
 

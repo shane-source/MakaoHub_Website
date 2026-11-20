@@ -311,6 +311,66 @@ public class ListingMediaController extends Controller {
         });
     }
 
+    // ---------- Replace one photo ----------
+
+    /** As in the app: the new photo is uploaded and confirmed first, then the old one is removed. */
+    public CompletionStage<Result> replace(Http.Request request, String id, String mid) {
+        Result blocked = gate(request);
+        if (blocked != null) return done(blocked);
+        if (!isSafeId(id) || !isSafeId(mid)) return done(redirect("/dashboard/listings"));
+
+        String role = role(request);
+        String page = "/dashboard/listings/" + id + "/photos";
+
+        Http.MultipartFormData<TemporaryFile> form = request.body().asMultipartFormData();
+        Http.MultipartFormData.FilePart<TemporaryFile> part = null;
+        if (form != null) {
+            for (Http.MultipartFormData.FilePart<TemporaryFile> f : form.getFiles()) {
+                if (f.getFilename() != null && !f.getFilename().isEmpty()) { part = f; break; }
+            }
+        }
+        if (part == null) {
+            return done(redirect(page).flashing("mediaErr", "Choose a JPEG, PNG or WebP photo as the replacement."));
+        }
+        final Path file = part.getRef().path();
+
+        Ctx c = new Ctx(request);
+        String base = owner(role) + "/listings/" + id;
+
+        return call(c, "GET", base + "/media", null).thenCompose(existing -> {
+            if (existing.expired()) return done(redirect(LOGIN).withNewSession());
+            if (!existing.ok()) {
+                return done(finish(c, request, redirect(page).flashing("mediaErr", existing.message())));
+            }
+
+            Progress progress = new Progress();
+            boolean oldIsPhoto = false;
+            for (JsonNode n : items(existing.json())) {
+                progress.used.add(n.path("sortOrder").asInt(-1));
+                if (n.path("mediaType").asText("").equals("VIDEO")) progress.hasVideo = true;
+                if (mid.equals(n.path("id").asText("")) && n.path("mediaType").asText("").equals("IMAGE")) oldIsPhoto = true;
+            }
+            if (!oldIsPhoto) {
+                return done(finish(c, request, redirect(page).flashing("mediaErr", "Only photos can be replaced here.")));
+            }
+
+            return one(c, base, file, progress).thenCompose(ignored -> {
+                if (progress.expired) return done(redirect(LOGIN).withNewSession());
+                if (progress.error != null || progress.saved < 1) {
+                    String message = progress.error != null ? progress.error : "The replacement wasn't saved.";
+                    return done(finish(c, request, redirect(page).flashing("mediaErr", message)));
+                }
+                return call(c, "DELETE", base + "/media/" + mid, null).thenApply(removed -> {
+                    if (removed.expired()) return redirect(LOGIN).withNewSession();
+                    Result back = removed.ok()
+                            ? redirect(page).flashing("mediaNote", "Photo replaced.")
+                            : redirect(page).flashing("mediaErr", "The new photo was added, but the old one couldn't be removed. Remove it below.");
+                    return finish(c, request, back);
+                });
+            });
+        });
+    }
+
     // ---------- Confirm a stored upload, or remove a file ----------
 
     public CompletionStage<Result> confirm(Http.Request request, String id, String mid) {

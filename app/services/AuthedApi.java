@@ -16,6 +16,7 @@ import play.libs.ws.WSRequest;
 import play.libs.ws.WSResponse;
 import play.mvc.Http;
 
+
 /**
  * Signed-in calls to the backend. Reads the access token from the website session,
  * refreshes it once if the backend answers 401, and reports when the person must sign in again.
@@ -27,10 +28,12 @@ public class AuthedApi {
 
     private final WSClient ws;
     private final String baseUrl;
+    private final ClientIdentity identity;
 
     @Inject
-    public AuthedApi(WSClient ws, Config config) {
+    public AuthedApi(WSClient ws, Config config, ClientIdentity identity) {
         this.ws = ws;
+        this.identity = identity;
         String url = config.getString("makao.api.baseUrl");
         this.baseUrl = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
@@ -93,6 +96,31 @@ public class AuthedApi {
         }
     }
 
+    /** The answer to one PUT or DELETE. */
+    public static class WriteResult {
+        public final int status;
+        public final JsonNode json;            // may be null, for example on 204
+        public final boolean expired;          // true: the person has to sign in again
+        public final String accessToken;       // set only when the tokens were refreshed
+        public final String refreshToken;
+
+        private WriteResult(int status, JsonNode json, boolean expired, String accessToken, String refreshToken) {
+            this.status = status;
+            this.json = json;
+            this.expired = expired;
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
+        }
+
+        public boolean ok() {
+            return status >= 200 && status < 300;
+        }
+
+        public boolean refreshed() {
+            return accessToken != null;
+        }
+    }
+
     private static class Single {
         final int status;
         final JsonNode json;
@@ -129,7 +157,7 @@ public class AuthedApi {
             if (refresh.isEmpty()) {
                 return done(new Batch(first.json, true, null, null));
             }
-            return refreshTokens(refresh).thenCompose(tokens -> {
+            return refreshTokens(refresh, identity.ipOf(request)).thenCompose(tokens -> {
                 if (tokens == null) {
                     return done(new Batch(first.json, true, null, null));
                 }
@@ -176,6 +204,29 @@ public class AuthedApi {
                 .exceptionally(error -> new Single(0, null));
     }
 
+    /** GET one path and keep the status, so callers can tell "not allowed" (403) from "not found". */
+    public CompletionStage<WriteResult> getWithStatus(Http.Request request, String path) {
+        String access = request.session().get("accessToken").orElse("");
+        String refresh = request.session().get("refreshToken").orElse("");
+
+        return fetchOne(access, path).thenCompose(first -> {
+            if (first.status != 401) {
+                return done(new WriteResult(first.status, first.json, false, null, null));
+            }
+            if (refresh.isEmpty()) {
+                return done(new WriteResult(401, null, true, null, null));
+            }
+            return refreshTokens(refresh, identity.ipOf(request)).thenCompose(tokens -> {
+                if (tokens == null) {
+                    return done(new WriteResult(401, null, true, null, null));
+                }
+                return fetchOne(tokens.access, path).thenApply(second -> second.status == 401
+                        ? new WriteResult(401, null, true, null, null)
+                        : new WriteResult(second.status, second.json, false, tokens.access, tokens.refresh));
+            });
+        });
+    }
+
     // ---------- POST and PATCH ----------
 
     /** POST with the tokens from the website session. The body may be null. */
@@ -183,12 +234,18 @@ public class AuthedApi {
         return call("POST",
                 request.session().get("accessToken").orElse(""),
                 request.session().get("refreshToken").orElse(""),
-                path, body, null);
+                path, body, null, identity.ipOf(request));
     }
 
     /** POST with tokens given directly. The body may be null. */
     public CompletionStage<Posted> post(String access, String refresh, String path, JsonNode body) {
-        return call("POST", access, refresh, path, body, null);
+        return call("POST", access, refresh, path, body, null, null);
+    }
+
+    /** POST with tokens given directly, on behalf of the visitor who made this request. */
+    public CompletionStage<Posted> post(Http.RequestHeader request, String access, String refresh,
+                                        String path, JsonNode body) {
+        return call("POST", access, refresh, path, body, null, identity.ipOf(request));
     }
 
     /** Same as post(request, path, body). Kept because other pages call it by this name. */
@@ -201,12 +258,12 @@ public class AuthedApi {
         return call("POST",
                 request.session().get("accessToken").orElse(""),
                 request.session().get("refreshToken").orElse(""),
-                path, body, key);
+                path, body, key, identity.ipOf(request));
     }
 
     /** Same, with tokens given directly (used after an earlier call in the same request renewed them). */
     public CompletionStage<Posted> postKeyed(String access, String refresh, String path, JsonNode body, String key) {
-        return call("POST", access, refresh, path, body, key);
+        return call("POST", access, refresh, path, body, key, null);
     }
 
     /** PATCH with no body, with the tokens from the website session. */
@@ -214,7 +271,7 @@ public class AuthedApi {
         return call("PATCH",
                 request.session().get("accessToken").orElse(""),
                 request.session().get("refreshToken").orElse(""),
-                path, null, null);
+                path, null, null, identity.ipOf(request));
     }
 
     /**
@@ -222,27 +279,28 @@ public class AuthedApi {
      * and send the same request again.
      */
     private CompletionStage<Posted> call(String method, String access, String refresh, String path,
-                                         JsonNode body, String key) {
-        return send(method, access, path, body, key).thenCompose(first -> {
+                                         JsonNode body, String key, String ip) {
+        return send(method, access, path, body, key, ip).thenCompose(first -> {
             if (first.status != 401) {
                 return done(new Posted(first, false, null, null));
             }
             if (refresh == null || refresh.isEmpty()) {
                 return done(new Posted(first, true, null, null));
             }
-            return refreshTokens(refresh).thenCompose(tokens -> {
+            return refreshTokens(refresh, ip).thenCompose(tokens -> {
                 if (tokens == null) {
                     return done(new Posted(first, true, null, null));
                 }
-                return send(method, tokens.access, path, body, key).thenApply(second -> second.status == 401
+                return send(method, tokens.access, path, body, key, ip).thenApply(second -> second.status == 401
                         ? new Posted(second, true, null, null)
                         : new Posted(second, false, tokens.access, tokens.refresh));
             });
         });
     }
 
-    private CompletionStage<Single> send(String method, String access, String path, JsonNode body, String key) {
-        WSRequest req = ws.url(baseUrl + path)
+    private CompletionStage<Single> send(String method, String access, String path, JsonNode body, String key,
+                                         String ip) {
+        WSRequest req = identity.tag(ws.url(baseUrl + path), ip)
                 .addHeader("Authorization", "Bearer " + access)
                 .setRequestTimeout(TIMEOUT);
         if (key != null) {
@@ -270,12 +328,74 @@ public class AuthedApi {
                 .exceptionally(error -> new Single(0, null));
     }
 
+    // ---------- PUT and DELETE ----------
+
+    /** PUT with the person's token, with the same refresh-once rule as the other calls. */
+    public CompletionStage<WriteResult> put(Http.Request request, String path, JsonNode body) {
+        return write(request, "PUT", path, body);
+    }
+
+    /** DELETE with the person's token, with the same refresh-once rule as the other calls. */
+    public CompletionStage<WriteResult> delete(Http.Request request, String path) {
+        return write(request, "DELETE", path, null);
+    }
+
+    private CompletionStage<WriteResult> write(Http.Request request, String verb, String path, JsonNode body) {
+        String access = request.session().get("accessToken").orElse("");
+        String refresh = request.session().get("refreshToken").orElse("");
+
+        return writeOne(verb, access, path, body).thenCompose(first -> {
+            if (first.status != 401) {
+                return CompletableFuture.completedFuture(
+                        new WriteResult(first.status, first.json, false, null, null));
+            }
+            if (refresh.isEmpty()) {
+                return CompletableFuture.completedFuture(
+                        new WriteResult(first.status, first.json, true, null, null));
+            }
+            return refreshTokens(refresh, identity.ipOf(request)).thenCompose(tokens -> {
+                if (tokens == null) {
+                    return CompletableFuture.completedFuture(
+                            new WriteResult(first.status, first.json, true, null, null));
+                }
+                return writeOne(verb, tokens.access, path, body).thenApply(second -> second.status == 401
+                        ? new WriteResult(second.status, second.json, true, null, null)
+                        : new WriteResult(second.status, second.json, false, tokens.access, tokens.refresh));
+            });
+        });
+    }
+
+    private CompletionStage<Single> writeOne(String verb, String access, String path, JsonNode body) {
+        WSRequest call = ws.url(baseUrl + path)
+                .addHeader("Authorization", "Bearer " + access)
+                .setRequestTimeout(TIMEOUT);
+
+        if (verb.equals("PUT")) {
+            return call.put(body == null ? Json.newObject() : body)
+                    .thenApply(AuthedApi::single)
+                    .exceptionally(error -> new Single(0, null));
+        }
+        return call.delete()
+                .thenApply(AuthedApi::single)
+                .exceptionally(error -> new Single(0, null));
+    }
+
+    private static Single single(WSResponse response) {
+        JsonNode json = null;
+        try {
+            json = response.asJson();
+        } catch (Exception ignored) {
+            json = null;
+        }
+        return new Single(response.getStatus(), json);
+    }
+
     // ---------- Token renewal ----------
 
-    private CompletionStage<Tokens> refreshTokens(String refreshToken) {
+    private CompletionStage<Tokens> refreshTokens(String refreshToken, String ip) {
         ObjectNode body = Json.newObject();
         body.put("refreshToken", refreshToken);
-        return ws.url(baseUrl + "/api/v1/auth/refresh")
+        return identity.tag(ws.url(baseUrl + "/api/v1/auth/refresh"), ip)
                 .setRequestTimeout(TIMEOUT)
                 .post(body)
                 .thenApply(response -> {

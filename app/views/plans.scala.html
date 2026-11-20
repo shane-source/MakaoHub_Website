@@ -1,6 +1,6 @@
 @(role: String, view: controllers.PlansController.PlansView)(implicit request: Http.Request)
 
-@main("Boost & plans | Makao Hub") {
+@main("Plans | Makao Hub") {
 
   <section class="dash">
     <div class="dash-wrap">
@@ -9,47 +9,68 @@
 
       <p class="pl-back"><a href="/dashboard/profile">&larr; Profile</a></p>
 
+      @if(request.flash().get("pl").orElse("") == "failed") {
+        <p class="form-error" role="alert">We couldn't start that payment. Please try again.</p>
+      }
+
       @if(view.loadFailed()) {
         <p class="form-error" role="alert">We couldn't load your plans. Refresh the page to try again.</p>
       }
 
-      <h1 class="dash-title">Boost &amp; plans</h1>
-      <p class="dash-sub">Publish more listings and get them seen.</p>
-
-      <div class="dash-metrics">
-        <div class="metric"><span>Your listing limit</span><b>@view.activeLimit()</b></div>
-        <div class="metric"><span>Free starter limit</span><b>@view.starterLimit()</b></div>
+      <div class="ll-banner">
+        <span class="ll-banner-ico" aria-hidden="true">&#127968;</span>
+        <div>
+          <h1 class="ll-banner-title">Choose a plan that fits</h1>
+          <p class="ll-banner-sub">Plans last 30 days</p>
+        </div>
       </div>
 
-      <h2 class="dash-h2">Active now</h2>
-      @if(view.grants().isEmpty()) {
-        <p class="dash-muted">No active plans or boosts. You're on the free starter limit.</p>
-      }
-      @for(grant <- view.grants()) {
-        <div class="dash-card dash-row">
-          <div>
-            <b>@grant.name()</b>
-            <p class="dash-muted">@grant.listing()</p>
-          </div>
-          <span class="dash-muted">@if(!grant.expires().isEmpty()) {Until @grant.expires()}</span>
+      <div class="dash-card pl-bar">
+        <p class="pl-bar-h"><span class="pl-tick"></span>Your plan</p>
+        <p class="pl-plan">@view.planName()</p>
+        <p class="dash-muted">Listing limit: @view.activeLimit() &middot; Boost credits: @view.boostCredits()</p>
+        <p class="dash-muted">Upgrade any time to add more photos.</p>
+      </div>
+
+      <div class="dash-card pl-bar">
+        <p class="pl-bar-h"><span class="pl-tick"></span>Free</p>
+        <p class="pl-row"><b class="pl-price">KSh 0</b>@if(view.planName() == "Free") {<span class="dash-muted">Current plan</span>}</p>
+        <p class="pl-pt">&bull; Up to @view.starterLimit() active listings</p>
+      </div>
+
+      @for(offer <- view.offers()) {
+        <div class="dash-card pl-bar">
+          <p class="pl-bar-h"><span class="pl-tick"></span>@offer.name()</p>
+          <p class="pl-row"><b class="pl-price">@offer.price() / @offer.duration()</b>@if(view.planName() == offer.name()) {<span class="dash-muted">Current plan</span>}</p>
+          @if(!offer.limit().isEmpty()) {<p class="pl-pt">&bull; @offer.limit()</p>}
+          @if(!offer.photos().isEmpty()) {<p class="pl-pt">&bull; @offer.photos()</p>}
+          @if(!offer.boosts().isEmpty()) {<p class="pl-pt">&bull; @offer.boosts()</p>}
+          <form action="/dashboard/plans/checkout" method="post">
+            @helper.CSRF.formField
+            <input type="hidden" name="code" value="@offer.code()">
+            <input type="hidden" name="key" value="@java.util.UUID.randomUUID()">
+            <button class="btn block" type="submit">Choose @offer.name()</button>
+          </form>
         </div>
       }
-
-      <h2 class="dash-h2">Available plans</h2>
       @if(view.offers().isEmpty() && !view.loadFailed()) {
         <p class="dash-muted">No plans are available right now.</p>
       }
-      <div class="pl-grid">
-        @for(offer <- view.offers()) {
-          <div class="pl-card">
-            <p class="pl-name">@offer.name()</p>
-            <p class="pl-price">@offer.price()</p>
-            <p>@offer.duration()</p>
-            <p>@offer.limit()</p>
-            <span class="pl-soon">Checkout coming soon</span>
+
+      <p class="dash-muted">After you pay, check the result under <a href="/dashboard/payments">Payment history</a>.</p>
+
+      @if(view.grants().size() > 0) {
+        <h2 class="dash-h2">Active now</h2>
+        @for(grant <- view.grants()) {
+          <div class="dash-card dash-row">
+            <div>
+              <b>@grant.name()</b>
+              <p class="dash-muted">@grant.listing()</p>
+            </div>
+            <span class="dash-muted">@if(!grant.expires().isEmpty()) {Until @grant.expires()}</span>
           </div>
         }
-      </div>
+      }
 
       @if(view.showInsights()) {
         <h2 class="dash-h2">How your listings are doing</h2>

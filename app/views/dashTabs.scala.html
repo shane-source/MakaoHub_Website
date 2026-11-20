@@ -3,11 +3,17 @@
 <nav class="dash-tabs" aria-label="Dashboard">
   <a class="@(if(active == "home") "on" else "")" href="/dashboard">Home</a>
   @if(role == "RENTER") {
+  <a class="@(if(active == "browse") "on" else "")" href="/dashboard/homes">Browse</a>
     <a class="@(if(active == "saved") "on" else "")" href="/dashboard/saved">Saved</a>
   } else {
     <a class="@(if(active == "listings") "on" else "")" href="/dashboard/listings">Listings</a>
+    @if(role == "SUBLESSOR") {
+    <a class="@(if(active == "roommates") "on" else "")" href="/dashboard/roommates">Roommates</a>
+    }
   }
-  <a class="@(if(active == "applications") "on" else "")" href="/dashboard/applications">Applications</a>
-  <a class="@(if(active == "messages") "on" else "")" href="/dashboard/messages">Messages</a>
+  <a class="@(if(active == "applications") "on" else "")" href="/dashboard/applications" data-badge="applications">Applications</a>
+  <a class="@(if(active == "messages") "on" else "")" href="/dashboard/messages" data-badge="messages">Messages</a>
   <a class="@(if(active == "profile") "on" else "")" href="/dashboard/profile">Profile</a>
 </nav>
+<script src="@routes.Assets.versioned("javascripts/badges.js")" defer></script>
+<script src="@routes.Assets.versioned("javascripts/live.js")" defer></script>

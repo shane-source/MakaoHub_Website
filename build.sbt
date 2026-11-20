@@ -9,5 +9,6 @@ scalaVersion := "2.13.18"
 
 libraryDependencies ++= Seq(
   guice,
-  javaWs
+  javaWs,
+  filters
 )

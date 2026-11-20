@@ -16,7 +16,7 @@
       <div class="dash-top">
       <span class="pill @if(data.verification == "VERIFIED") {ok}">
         @if(data.verification == "VERIFIED") {
-          @if(role == "RENTER") {Verified Renter} else {Verified Partner}
+          @if(role == "RENTER") {Verified Renter} else if(role == "LANDLORD") {Verified Landlord} else {Verified Sublessor}
         } else {
           @data.verificationLabel
         }
@@ -70,7 +70,7 @@
 
         <h1 class="dash-title">@if(role == "LANDLORD") {Landlord} else {Sublessor} Dashboard</h1>
         <p class="dash-sub">
-          @if(role == "LANDLORD") {Manage your properties and renters} else {Manage your shared spaces and roommates}
+          @if(role == "LANDLORD") {Manage your properties and renters} else {Manage your shared spaces and renters}
         </p>
 
         @if(data.verification != "VERIFIED") {
@@ -81,22 +81,26 @@
         }
 
         <div class="dash-plans">
-          <div>
-            <small>PLANS &amp; SUBSCRIPTION</small>
-            <b>Explore your plans</b>
+          <div class="plans-head">
+            <span class="plans-ico">★</span>
+            <div>
+              <b>Makao @if(role == "LANDLORD") {Landlord} else {Sublessor} Plans</b>
+              <small>Free, Pro and Pro Max</small>
+            </div>
           </div>
-          <a href="/dashboard/plans">View</a>
+          <p>See photo limits, prices and the boost included with Pro Max.</p>
+          <a class="plans-btn" href="/dashboard/plans">View plans</a>
         </div>
 
         <div class="dash-metrics">
-          <div class="metric"><span>Active listings</span><b>@data.active</b></div>
-          <div class="metric"><span>Pending applications</span><b>@data.pending</b></div>
-          <div class="metric"><span>Draft listings</span><b>@data.drafts</b></div>
+          <div class="metric m-green"><span><i></i>Active listings</span><b>@data.active</b></div>
+          <div class="metric m-amber"><span><i></i>Pending applications</span><b>@data.pending</b></div>
+          <div class="metric m-grey"><span><i></i>Draft listings</span><b>@data.drafts</b></div>
         </div>
 
         <h2 class="dash-h2">Quick Actions</h2>
         <div class="dash-actions">
-          <a class="action" href="/dashboard/listings"><b>Your listings</b></a>
+          <a class="action primary" href="/dashboard/listings/new"><b>Add new listing</b></a>
           <a class="action" href="/dashboard/applications"><b>Applications</b></a>
           <a class="action" href="/dashboard/listings"><b>Boost listing</b></a>
         </div>
@@ -116,10 +120,9 @@
         }
 
         <p class="dash-links">
-          <a href="/dashboard/messages">Messages</a>
-          <a href="/dashboard/bookings">Move-in &amp; payouts</a>
           @if(role == "SUBLESSOR") {
-            <span>Roommate interests</span>
+            <a href="/dashboard/roommates">Roommate interests</a>
+            <a href="/dashboard/roommates/preferences">Roommate preferences</a>
           }
         </p>
 

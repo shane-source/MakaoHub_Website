@@ -1,0 +1,96 @@
+@(role: String, view: controllers.VerificationController.VerificationView)(implicit request: Http.Request)
+
+@main("Verification | Makao Hub") {
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "profile")
+
+        <p class="bk-back"><a href="/dashboard/profile">&larr; Profile</a></p>
+
+        @if(request.flash().get("vf").orElse("") == "saved") {
+        <p class="pf-flash" role="status">Document uploaded.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "submitted") {
+        <p class="pf-flash" role="status">Sent for review. We'll update your status here.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "none") {
+        <p class="form-error" role="alert">Choose a file first.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "unreadable") {
+        <p class="form-error" role="alert">That file couldn't be read. Try another.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "need-image") {
+        <p class="form-error" role="alert">Choose a clear JPEG or PNG photo.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "need-pdf") {
+        <p class="form-error" role="alert">Choose a PDF file.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "too-big") {
+        <p class="form-error" role="alert">Each file must be 10 MB or smaller.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "failed") {
+        <p class="form-error" role="alert">The upload didn't go through. Check your connection and try again.</p>
+        }
+        @if(request.flash().get("vf").orElse("") == "refused") {
+        <p class="form-error" role="alert">@request.flash().get("vfMsg").orElse("We couldn't accept that. Please try again.")</p>
+        }
+        @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load your verification. Refresh the page to try again.</p>
+        }
+
+        <h1 class="dash-title">Let&rsquo;s verify it&rsquo;s you</h1>
+        <p class="dash-sub">@view.overview()</p>
+        <p class="vf-hint">Tap each item to take a photo. We check the upload straight away; your documents are reviewed after submission.</p>
+        <p class="vf-chips"><span>Clear</span><span>No glare</span><span>Face visible</span></p>
+        @defining(view.docs().size) { total =>
+        @defining(view.docs().filter(d => d.ok()).size) { done =>
+        <div class="vf-bar" role="progressbar" aria-valuemin="0" aria-valuemax="@total" aria-valuenow="@done"><div style="width:@(if(total == 0) 0 else done * 100 / total)%"></div></div>
+        <p class="dash-muted">@done of @total captured</p>
+        }}
+
+        @if(!view.reason().isEmpty()) {
+        <p class="form-error" role="alert">Reason: @view.reason()</p>
+        }
+
+        @if(view.verified()) {
+        <p class="dash-muted">You're verified. Nothing more to do.</p>
+        }
+
+        @for(doc <- view.docs()) {
+        <div class="dash-card bk-card">
+            <div class="bk-top">
+                <b>@doc.label()</b>
+                <span class="pill @if(doc.ok()) {ok}">@doc.state()</span>
+            </div>
+            <p class="dash-muted">@doc.hint()</p>
+            @if(!view.verified() && !view.pending()) {
+            <form class="bk-form" action="@helper.CSRF(routes.VerificationController.upload(doc.`type`()))" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" required
+                       accept="@if(doc.pdf()) {application/pdf} else {image/jpeg,image/png}"
+                       @if(doc.selfie()) {capture="user"} else if(!doc.pdf()) {capture="environment"}>
+                <button class="btn sm" type="submit">@if(doc.replace()) {Replace} else {@if(doc.pdf()) {Upload} else {Capture}}</button>
+            </form>
+            }
+        </div>
+        }
+
+        @if(view.pending()) {
+        <p class="dash-muted">Your documents are with our team. You can't change them while they're being reviewed.</p>
+        }
+
+        @if(!view.verified() && !view.pending()) {
+        <form action="/dashboard/verification/submit" method="post">
+            @helper.CSRF.formField
+            <button class="btn" type="submit" @if(!view.canSubmit()) {disabled}>Continue and send for review</button>
+        </form>
+        @if(!view.canSubmit()) {
+        <p class="dash-muted">Upload every document above first. Each one needs to show as Uploaded.</p>
+        }
+        }
+
+    </div>
+</section>
+
+}

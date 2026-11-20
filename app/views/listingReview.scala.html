@@ -1,0 +1,99 @@
+@(role: String, v: controllers.ListingReviewController.ReviewView)(implicit request: Http.Request)
+
+@note = @{ request.flash().get("revNote").orElse("") }
+@problem = @{ request.flash().get("revErr").orElse("") }
+
+@main("Review and publish | Makao Hub") {
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "listings")
+
+        <p class="le-back"><a href="/dashboard/listings/@v.id()/location">&larr; Back to location</a></p>
+
+        <h1 class="le-title">Review and publish</h1>
+        <p class="le-sub">Step 4 of 4 · @v.title() · Status: @v.status().toLowerCase().replace("_", " ")</p>
+
+        @if(!note.isEmpty()) {
+        <p class="pf-flash" role="status">@note</p>
+        }
+        @if(!problem.isEmpty()) {
+        <p class="form-error" role="alert">@problem</p>
+        }
+
+        <p class="pf-label">REQUIREMENTS</p>
+        <ul class="rv-list">
+            @for(check <- v.checks()) {
+            <li class="rv-item rv-@check.state()">
+                <span class="rv-mark" aria-hidden="true">@if(check.state() == "good") {✓} else {!}</span>
+                <span class="rv-text">
+              <b>@check.title()</b>
+              <small>@check.detail()</small>
+            </span>
+                @if(!check.href().isEmpty()) {<a class="rv-fix" href="@check.href()">Fix</a>}
+            </li>
+            }
+        </ul>
+
+        <p class="pf-label">STAFF REVIEW</p>
+        <div class="rv-box">
+            @if(v.stage() == "PUBLISHED") {
+            <b>Published</b>
+            <p>Your listing is visible to renters.</p>
+            <form action="/dashboard/listings/@v.id()/review/pause" method="post"
+                  onsubmit="return confirm('Pause this listing? It will be hidden from renters until you resume it.')">
+                @helper.CSRF.formField
+                <button class="btn" type="submit">Pause listing</button>
+            </form>
+            }
+            @if(v.stage() == "NOT_SUBMITTED") {
+            <b>Not submitted</b>
+            <p>Complete the requirements above, then send your listing to staff for review.</p>
+            <form action="/dashboard/listings/@v.id()/review/submit" method="post">
+                @helper.CSRF.formField
+                <button class="btn" type="submit" @if(!v.canSubmit()) {disabled}>Submit listing for review</button>
+            </form>
+            }
+            @if(v.stage() == "IN_REVIEW") {
+            <b>Under staff review</b>
+            <p>Publishing stays locked until a moderator records a decision.</p>
+            <a class="btn ghost" href="/dashboard/listings/@v.id()/review">Refresh review status</a>
+            }
+            @if(v.stage() == "CHANGES") {
+            <b>Changes required</b>
+            <p>@if(v.reason().isEmpty()) {Open the listing and correct the submitted details.} else {@v.reason()}</p>
+            <form action="/dashboard/listings/@v.id()/review/revise" method="post">
+                @helper.CSRF.formField
+                <button class="btn" type="submit">Revise listing</button>
+            </form>
+            }
+            @if(v.stage() == "APPROVED") {
+            <b>Listing approved</b>
+            <p>Review checks passed. @if(v.canPublish()) {You can now publish your listing.}</p>
+            @if(v.canPublish()) {
+            <form action="/dashboard/listings/@v.id()/review/publish" method="post">
+                @helper.CSRF.formField
+                <button class="btn" type="submit">Publish listing</button>
+            </form>
+            }
+            @if(v.canResume()) {
+            <form action="/dashboard/listings/@v.id()/review/resume" method="post">
+                @helper.CSRF.formField
+                <button class="btn" type="submit">Resume published listing</button>
+            </form>
+            }
+            }
+            @if(v.stage() == "UNKNOWN") {
+            <b>Review status unavailable</b>
+            <p>Refresh before submitting or publishing.</p>
+            <a class="btn ghost" href="/dashboard/listings/@v.id()/review">Refresh review status</a>
+            }
+        </div>
+
+        <p class="loc-next"><a href="/dashboard/listings">Back to my listings</a></p>
+
+    </div>
+</section>
+
+}

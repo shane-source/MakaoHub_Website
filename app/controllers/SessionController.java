@@ -22,14 +22,23 @@ public class SessionController extends Controller {
     /** Revokes the session on the backend, then clears the website session whatever the answer. */
     public CompletionStage<Result> logout(Http.Request request) {
         String refresh = request.session().get("refreshToken").orElse("");
+        java.util.Map<String, String[]> form = request.body().asFormUrlEncoded();
+        boolean idle = form != null && form.get("idle") != null;
+        String last = DashSupport.lastRole(request);
+        String signedInRole = request.session().get("role").orElse(last);
+        // After inactivity sign-out go back to sign-in as the same role; a normal sign-out lands on "/", which does the same.
+        String target = idle
+                ? (signedInRole != null && java.util.Set.of("RENTER", "LANDLORD", "SUBLESSOR").contains(signedInRole)
+                        ? "/login?role=" + signedInRole + "&idle=1" : "/get-started?mode=login&idle=1")
+                : "/";
         if (refresh.isEmpty()) {
-            return CompletableFuture.completedFuture(redirect("/").withNewSession());
+            return CompletableFuture.completedFuture(DashSupport.rememberRole(redirect(target).withNewSession(), signedInRole));
         }
 
         ObjectNode body = Json.newObject();
         body.put("refreshToken", refresh);
 
         return api.post(request, "/api/v1/auth/logout", body)
-                .thenApply(result -> redirect("/").withNewSession());
+                .thenApply(result -> DashSupport.rememberRole(redirect(target).withNewSession(), signedInRole));
     }
 }

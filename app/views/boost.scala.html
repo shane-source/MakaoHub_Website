@@ -1,0 +1,67 @@
+@(role: String, view: controllers.PlansController.BoostView)(implicit request: Http.Request)
+
+@main("Boost listing | Makao Hub") {
+
+  <section class="dash">
+    <div class="dash-wrap">
+
+      @dashTabs(role, "listings")
+
+      <p class="pl-back"><a href="/dashboard/listings">&larr; Listings</a></p>
+
+      @if(request.flash().get("pl").orElse("") == "failed") {
+        <p class="form-error" role="alert">We couldn't start that payment. Please try again.</p>
+      }
+      @if(view.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load the boost options. Refresh the page to try again.</p>
+      }
+
+      <div class="ll-banner">
+        <span class="ll-banner-ico" aria-hidden="true">&#128640;</span>
+        <div>
+          <h1 class="ll-banner-title">Boost this listing</h1>
+          <p class="ll-banner-sub">@if(view.title().isEmpty()) {Get it seen first} else {@view.title()}</p>
+        </div>
+      </div>
+
+      @if(view.credits() > 0) {
+      <div class="dash-card pl-bar">
+        <p class="pl-bar-h"><span class="pl-tick"></span>Included boost</p>
+        <p class="dash-muted">You have @view.credits() boost @if(view.credits() == 1) {credit} else {credits} from your plan. One credit boosts this listing for 7 days.</p>
+        <form action="/dashboard/listings/@view.listingId()/boost" method="post"
+              onsubmit="return confirm('Use one boost credit to promote this listing for 7 days?')">
+          @helper.CSRF.formField
+          <button class="btn block" type="submit">Use included boost</button>
+        </form>
+      </div>
+      } else {
+      <div class="dash-card pl-bar">
+        <p class="pl-bar-h"><span class="pl-tick"></span>Included boost</p>
+        <p class="dash-muted">You have no boost credits. Pro Max includes one 7 day boost. You can also buy a boost below.</p>
+        <p><a class="btn ghost sm" href="/dashboard/plans">See plans</a></p>
+      </div>
+      }
+
+      @for(offer <- view.offers()) {
+        <div class="dash-card pl-bar">
+          <p class="pl-bar-h"><span class="pl-tick"></span>@offer.name()</p>
+          <p class="pl-row"><b class="pl-price">@offer.price()</b><span class="dash-muted">@offer.duration()</span></p>
+          <form action="/dashboard/plans/checkout" method="post">
+            @helper.CSRF.formField
+            <input type="hidden" name="code" value="@offer.code()">
+            <input type="hidden" name="listingId" value="@view.listingId()">
+            <input type="hidden" name="key" value="@java.util.UUID.randomUUID()">
+            <button class="btn block" type="submit">Buy @offer.name()</button>
+          </form>
+        </div>
+      }
+      @if(view.offers().isEmpty() && !view.loadFailed()) {
+        <p class="dash-muted">No boosts are available to buy right now.</p>
+      }
+
+      <p class="dash-muted">After you pay, check the result under <a href="/dashboard/payments">Payment history</a>.</p>
+
+    </div>
+  </section>
+
+}

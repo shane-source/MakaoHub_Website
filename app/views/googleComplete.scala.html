@@ -1,0 +1,55 @@
+@(idToken: String, role: String, label: String, name: String, email: String, error: String)(implicit request: Http.Request)
+
+@main("Finish with Google | Makao Hub") {
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="@routes.Assets.versioned("images/photo2.jpg")" alt="A sunny bedroom with a desk by the window">
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-box">
+        <h1>Almost there</h1>
+        <p class="lead">
+          @if(email.nonEmpty) {
+            Continuing with Google as <b>@email</b>. Add your phone number to finish creating your @label.toLowerCase() account.
+          } else {
+            Add your phone number to finish creating your @label.toLowerCase() account.
+          }
+        </p>
+
+        @if(error.nonEmpty) {
+          <p class="form-error" role="alert">@error</p>
+        }
+
+        <form class="form" action="/google/register" method="post">
+          @helper.CSRF.formField
+          <input type="hidden" name="idToken" value="@idToken">
+          <input type="hidden" name="role" value="@role">
+
+          <div class="form-row">
+            <label for="fullName">Full name</label>
+            <input id="fullName" name="fullName" type="text" autocomplete="name" value="@name">
+          </div>
+
+          <div class="form-row">
+            <label for="phone">Phone</label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="0712 345 678" required>
+          </div>
+
+          <div class="form-row">
+            <label class="check" for="terms">
+              <input id="terms" name="terms" type="checkbox" value="true" required>
+              <span>I accept the Terms of Service and Privacy Policy.</span>
+            </label>
+          </div>
+
+          <button class="btn block" type="submit">Create account</button>
+        </form>
+
+        <p class="switch"><a href="/get-started">Use a different sign-in method</a></p>
+      </div>
+    </div>
+  </section>
+
+}

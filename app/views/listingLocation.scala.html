@@ -1,0 +1,90 @@
+@(role: String, v: controllers.ListingLocationController.LocationView)(implicit request: Http.Request)
+
+@note = @{ request.flash().get("locNote").orElse("") }
+@problem = @{ request.flash().get("locErr").orElse("") }
+
+@main("Location | Makao Hub") {
+
+@if(v.mapsKey().isEmpty()) {
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@@4.7.1/dist/maplibre-gl.css">
+}
+
+<section class="dash">
+    <div class="dash-wrap">
+
+        @dashTabs(role, "listings")
+
+        <p class="le-back"><a href="/dashboard/listings/@v.id()/photos">&larr; Back to photos</a></p>
+
+        <h1 class="le-title">Set the private location</h1>
+        <p class="le-sub">Step 3 of 4 · Public area, private map pin · @v.title()</p>
+
+        @if(!note.isEmpty()) {
+        <p class="pf-flash" role="status">@note</p>
+        }
+        @if(!problem.isEmpty()) {
+        <p class="form-error" role="alert">@problem</p>
+        }
+        @if(v.loadFailed()) {
+        <p class="form-error" role="alert">We couldn't load the saved location. Refresh the page to try again.</p>
+        }
+        @if(!v.editable()) {
+        <p class="le-notice" role="status">This listing is @v.status().toLowerCase().replace("_", " "), so its location can't be changed here.</p>
+        }
+
+        <form id="loc-form" class="form" action="/dashboard/listings/@v.id()/location" method="post">
+            @helper.CSRF.formField
+            <input type="hidden" id="lat" name="lat" value="@v.lat()">
+            <input type="hidden" id="lng" name="lng" value="@v.lng()">
+
+            <div class="form-row">
+                <label for="area">Public approximate area · County</label>
+                <select id="area" name="area" @if(!v.editable()) {disabled}>
+                    <option value="">Select county</option>
+                    @for(county <- v.counties()) {
+                    <option value="@county" @if(v.area() == county) {selected}>@county</option>
+                    }
+                </select>
+            </div>
+
+            @if(v.editable()) {
+            <div class="form-row">
+                <label for="addr">Search the property address (optional)</label>
+                <div class="loc-search">
+                    <input id="addr" type="text" maxlength="150" autocomplete="off">
+                    <button id="find" class="btn sm ghost" type="button">Find address</button>
+                </div>
+                <p class="help">This sends what you type to a map search service. Results are approximate. Check the pin before saving.</p>
+            </div>
+            }
+
+            <p class="help">Pan and zoom, then tap the exact property point. Your exact pin stays private.</p>
+
+            <div id="loc-map" class="loc-map"
+                 data-maps-key="@v.mapsKey()" data-editable="@v.editable()" data-pin="@v.hasPin()" data-lat="@v.lat()" data-lng="@v.lng()"
+                 role="application" aria-label="Property location map"></div>
+            @if(v.mapsKey().isEmpty()) {
+            <p class="loc-credit">© OpenMapTiles · © OpenStreetMap contributors · Maps by OpenFreeMap</p>
+            }
+
+            <p id="loc-msg" class="loc-msg" role="status"></p>
+            <p id="loc-pin" class="loc-pin">@if(v.hasPin()) {Property pin selected · Exact location stays private.} else {No property pin selected yet.}</p>
+
+            @if(v.editable()) {
+            <button id="loc-save" class="btn block" type="submit" disabled>Save private pin</button>
+            }
+        </form>
+
+        <p class="loc-next">
+            <a href="/dashboard/listings/@v.id()/review">Next: review and publish &rarr;</a><br>
+            <a href="/dashboard/listings/@v.id()/edit">Save draft and return to details</a>
+        </p>
+    </div>
+</section>
+
+@if(v.mapsKey().isEmpty()) {
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@@4.7.1/dist/maplibre-gl.js" defer></script>
+}
+<script src="@routes.Assets.versioned("javascripts/location.js")" defer></script>
+
+}

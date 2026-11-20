@@ -30,7 +30,7 @@ public class BookingsController extends Controller {
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
             .withZone(ZoneId.of("Africa/Nairobi"));
 
-    /** One booking, already worded for the page. The two flags decide which buttons show. */
+    /** One booking, already worded for the page. The three flags decide which buttons show. */
     public record Row(
             String id,
             String title,
@@ -39,9 +39,11 @@ public class BookingsController extends Controller {
             String total,
             String breakdown,
             String agreement,
+            String moveIn,
             String payout,
             boolean canAgree,
-            boolean canMoveIn) {}
+            boolean canMoveIn,
+            boolean canRelease) {}
 
     public record BookingsView(List<Row> rows, boolean loadFailed) {}
 
@@ -94,7 +96,7 @@ public class BookingsController extends Controller {
         });
     }
 
-    // ---------- The two buttons ----------
+    // ---------- The three buttons ----------
 
     public CompletionStage<Result> confirmAgreement(Http.Request request, String id) {
         return step(request, id, "agreement/confirm", "agreement");
@@ -102,6 +104,10 @@ public class BookingsController extends Controller {
 
     public CompletionStage<Result> confirmMoveIn(Http.Request request, String id) {
         return step(request, id, "move-in/confirm", "movein");
+    }
+
+    public CompletionStage<Result> requestRelease(Http.Request request, String id) {
+        return step(request, id, "release-review-request", "release");
     }
 
     private CompletionStage<Result> step(Http.Request request, String id, String path, String key) {
@@ -149,12 +155,18 @@ public class BookingsController extends Controller {
 
         boolean you = has(b, "ownerAgreedAt");
         boolean renter = has(b, "renterAgreedAt");
+        boolean reported = has(b, "ownerMoveInConfirmedAt");
+        boolean answered = has(b, "moveInAnsweredAt");
+        boolean accepted = b.path("moveInAccepted").asBoolean(false);
+        boolean requested = has(b, "ownerReleaseRequestedAt");
         boolean paidOut = has(b, "releasedAt");
 
         // The buttons follow the dates on the booking. The backend still has the final say.
         boolean usable = isSafeId(id);
         boolean canAgree = usable && !you && !paidOut;
-        boolean canMoveIn = usable && you && renter && !has(b, "ownerMoveInConfirmedAt") && !paidOut;
+        boolean canMoveIn = usable && you && renter && !reported && !paidOut;
+        // After a "yes" the automatic payout takes over, so a review is only for "no" or no answer.
+        boolean canRelease = usable && reported && !paidOut && !requested && !(answered && accepted);
 
         return new Row(
                 id,
@@ -164,9 +176,11 @@ public class BookingsController extends Controller {
                 money(b.path("totalAmountMinor").asLong(), currency),
                 breakdown,
                 agreement(you, renter),
+                moveInText(b, reported, answered, accepted, requested),
                 payout(b),
                 canAgree,
-                canMoveIn);
+                canMoveIn,
+                canRelease);
     }
 
     /** The viewer is the owner, so "ownerAgreedAt" is the viewer's own agreement. */
@@ -177,12 +191,45 @@ public class BookingsController extends Controller {
         return "Booking terms not agreed yet";
     }
 
+    /** Where the move-in stands, including the renter's answer and any review you asked for. */
+    private static String moveInText(JsonNode b, boolean reported, boolean answered, boolean accepted, boolean requested) {
+        if (!reported) return "";
+        String line;
+        if (!answered) {
+            line = "You reported the move-in. Waiting for the renter's answer.";
+        } else if (accepted) {
+            line = "The renter confirmed the move-in.";
+        } else {
+            line = "The renter said they haven't moved in. The payment stays held.";
+        }
+        if (requested) {
+            line += " Release review requested on " + day(b.path("ownerReleaseRequestedAt").asText("")) + ".";
+        }
+        return line;
+    }
+
     private static String payout(JsonNode b) {
-        if (has(b, "releasedAt")) return "Released on " + day(b.path("releasedAt").asText(""));
+        if (has(b, "releasedAt")) return "Paid out on " + day(b.path("releasedAt").asText(""));
+        String sent = b.path("testPayoutStatus").asText("");
+        if (!sent.isEmpty() && !"NOT_QUEUED".equals(sent)) return payoutLabel(sent);
         if (has(b, "releaseEligibleAt")) return "Eligible for release from " + day(b.path("releaseEligibleAt").asText(""));
-        String test = b.path("testPayoutStatus").asText("");
-        if (!test.isEmpty()) return "Test payout: " + pretty(test).toLowerCase(Locale.ROOT);
         return "Payout not released yet";
+    }
+
+    /** Plain wording for each payout state the backend can report. */
+    private static String payoutLabel(String code) {
+        return switch (code) {
+            case "SUCCEEDED" -> "Payout succeeded: sent to the owner's M-Pesa";
+            case "QUEUED" -> "Payout queued";
+            case "PENDING" -> "Payout in progress with Paystack";
+            case "OTP" -> "Payout waiting for Paystack confirmation";
+            case "FAILED" -> "Payout failed";
+            case "REVERSED" -> "Payout reversed";
+            case "REVIEW", "REVIEW_REQUIRED" -> "Payout under review by our team";
+            case "DESTINATION_REQUIRED" -> "Payout waiting for the owner's M-Pesa number";
+            case "OWNER_NOT_VERIFIED" -> "Payout waiting for owner verification";
+            default -> "Payout: " + pretty(code).toLowerCase(Locale.ROOT);
+        };
     }
 
     // ---------- Helpers ----------

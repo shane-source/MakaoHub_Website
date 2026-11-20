@@ -42,8 +42,8 @@ public class ListingsController extends Controller {
                 base + "/applications",
                 base + "/offers/listing-card-metrics");
 
-        return api.getAll(request, paths).thenApply(batch -> {
-            if (batch.expired) return DashSupport.toSignIn();
+        return api.getAll(request, paths).thenCompose(batch -> {
+            if (batch.expired) return DashSupport.done(DashSupport.toSignIn());
 
             JsonNode listings = batch.json.get(0);
             JsonNode applications = batch.json.get(1);
@@ -88,7 +88,11 @@ public class ListingsController extends Controller {
                             ? DashSupport.boostLabel(m.path("boostExpiresAt").asText())
                             : null;
 
+                    // The id goes into page addresses, so only plain ids are used.
+                    String safeId = id.matches("[A-Za-z0-9-]{1,64}") ? id : "";
+
                     page.rows.add(new ListingsPage.ListingRow(
+                            safeId,
                             listing.path("title").asText("Untitled listing"),
                             DashSupport.kes(listing.path("monthlyRentKes").asLong()),
                             details(role, listing),
@@ -103,9 +107,45 @@ public class ListingsController extends Controller {
                 page.nextShow = limit + 20;
             }
 
-            Result result = ok(views.html.listings.render(role, page, request));
-            return DashSupport.applyTokens(result, batch, request);
+            // The cover photo of each card, like the app. A failure just leaves the placeholder.
+            List<String> photoPaths = new java.util.ArrayList<>();
+            for (ListingsPage.ListingRow row : page.rows) {
+                if (!row.id.isEmpty()) photoPaths.add(base + "/listings/" + row.id + "/photos");
+            }
+            if (photoPaths.isEmpty()) {
+                Result result = ok(views.html.listings.render(role, page, request));
+                return DashSupport.done(DashSupport.applyTokens(result, batch, request));
+            }
+            return api.getAll(request, photoPaths).thenApply(photoBatch -> {
+                if (!photoBatch.expired) {
+                    int at = 0;
+                    for (ListingsPage.ListingRow row : page.rows) {
+                        if (row.id.isEmpty()) continue;
+                        JsonNode photos = photoBatch.json.get(at++);
+                        row.photo = firstPhoto(photos);
+                    }
+                }
+                Result result = ok(views.html.listings.render(role, page, request));
+                AuthedApi.Batch fresh = photoBatch.refreshed() ? photoBatch : batch;
+                return DashSupport.applyTokens(result, fresh, request);
+            });
         });
+    }
+
+    /** The first secure photo address in a media list, or an empty string. */
+    private static String firstPhoto(JsonNode photos) {
+        if (photos == null) return "";
+        JsonNode list = photos.isArray() ? photos : (photos.has("items") ? photos.path("items") : photos.path("content"));
+        if (!list.isArray()) return "";
+        String best = "";
+        int bestOrder = Integer.MAX_VALUE;
+        for (JsonNode n : list) {
+            if (!n.path("mediaType").asText("IMAGE").equals("IMAGE")) continue;
+            String url = n.path("signedReadUrl").asText("");
+            int order = n.path("sortOrder").asInt(0);
+            if (url.startsWith("https://") && order < bestOrder) { best = url; bestOrder = order; }
+        }
+        return best;
     }
 
     private static String details(String role, JsonNode listing) {

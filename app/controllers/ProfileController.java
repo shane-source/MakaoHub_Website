@@ -2,6 +2,11 @@ package controllers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.inject.Inject;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +47,14 @@ public class ProfileController extends Controller {
         }
     }
 
+    private static final Set<String> IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+
+    // Storage gets the request directly: no redirects, and no Makao credentials are sent to it.
+    private static final HttpClient STORAGE = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
     private final AuthedApi api;
 
     @Inject
@@ -79,9 +92,15 @@ public class ProfileController extends Controller {
             String status = verification == null ? "" : verification.path("status").asText("");
             boolean verified = status.equals("VERIFIED");
 
-            // Only show a photo if it is a secure web address.
+            // The stored photo address is a temporary signed link that expires after a few minutes, so the page
+            // never uses it directly. It points at /dashboard/profile/avatar, which fetches a fresh link each time.
             String avatar = text(me, "avatarUrl");
-            if (!avatar.startsWith("https://")) avatar = "";
+            if (!trustedAvatar(avatar)) {
+                avatar = "";
+            } else {
+                boolean justChanged = "ok".equals(request.flash().get("photo").orElse(""));
+                avatar = "/dashboard/profile/avatar?v=" + (justChanged ? System.currentTimeMillis() : pathVersion(avatar));
+            }
 
             ProfileView view = new ProfileView(
                     name,
@@ -105,6 +124,71 @@ public class ProfileController extends Controller {
         });
     }
 
+    /** Serves the signed-in person's own profile photo from a stable address that never expires. */
+    public CompletionStage<Result> avatar(Http.Request request) {
+        boolean signedIn = request.session().get("accessToken").isPresent();
+        if (!signedIn) {
+            return CompletableFuture.completedFuture(status(401));
+        }
+        return api.getAll(request, List.of("/api/v1/profile/me")).thenCompose(batch -> {
+            if (batch.expired) {
+                return CompletableFuture.<Result>completedFuture(status(401));
+            }
+            String url = text(batch.json.get(0), "avatarUrl");
+            if (!trustedAvatar(url)) {
+                return CompletableFuture.<Result>completedFuture(notFound());
+            }
+            HttpRequest get;
+            try {
+                get = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(15)).GET().build();
+            } catch (IllegalArgumentException e) {
+                return CompletableFuture.<Result>completedFuture(notFound());
+            }
+            return STORAGE.sendAsync(get, HttpResponse.BodyHandlers.ofByteArray()).thenApply(response -> {
+                String type = response.headers().firstValue("Content-Type").orElse("").toLowerCase(Locale.ROOT);
+                type = type.split(";")[0].trim();
+                byte[] body = response.body();
+                if (response.statusCode() != 200 || body == null || body.length == 0
+                        || body.length > 10_485_760 || !IMAGE_TYPES.contains(type)) {
+                    return status(502);
+                }
+                Result image = ok(body).as(type)
+                        .withHeader("Cache-Control", "private, max-age=300")
+                        .withHeader("X-Content-Type-Options", "nosniff");
+                if (batch.refreshed()) {
+                    Map<String, String> session = new HashMap<>(request.session().data());
+                    session.put("accessToken", batch.accessToken);
+                    session.put("refreshToken", batch.refreshToken);
+                    return image.withSession(session);
+                }
+                return image;
+            }).exceptionally(error -> status(502));
+        });
+    }
+
+    /** Only a signed link on the project's own storage host is ever fetched. */
+    private static boolean trustedAvatar(String url) {
+        if (url == null || !url.startsWith("https://")) return false;
+        try {
+            URI uri = URI.create(url);
+            String host = uri.getHost();
+            String path = uri.getRawPath();
+            return host != null && host.endsWith(".supabase.co")
+                    && path != null && path.contains("/storage/v1/object/sign/");
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /** Changes only when the stored file changes, not when the signed link is renewed. */
+    private static String pathVersion(String url) {
+        try {
+            return Integer.toHexString(URI.create(url).getRawPath().hashCode());
+        } catch (RuntimeException e) {
+            return "0";
+        }
+    }
+
     // ---------- Rows in "Your account" ----------
 
     private static List<ActionRow> actionsFor(String role) {
@@ -112,10 +196,13 @@ public class ProfileController extends Controller {
         if (role.equals("RENTER")) {
             rows.add(new ActionRow("Saved homes", "/dashboard/saved", "heart"));
             rows.add(new ActionRow("Applications", "/dashboard/applications", "document"));
+            rows.add(new ActionRow("Bookings", "/dashboard/my-bookings", "payments"));
+            rows.add(new ActionRow("Payment history", "/dashboard/payments", "payments"));
         } else {
             rows.add(new ActionRow("My listings", "/dashboard/listings", "home"));
             rows.add(new ActionRow("Boost & plans", "/dashboard/plans", "bolt"));
             rows.add(new ActionRow("Bookings & payouts", "/dashboard/bookings", "payments"));
+            rows.add(new ActionRow("Payment history", "/dashboard/payments", "payments"));
         }
         return rows;
     }

@@ -26,6 +26,16 @@ public class ApplicationsPage {
         public final String statusClass;
         public final String submitted;
         public final String reason;         // null when there is none
+        public String moveIn = "";
+        public String id = "";
+        public String rawStatus = "";
+        public boolean hidden = false;
+        public String source = "";
+        public String remark = "";
+        public String message = "";
+        public boolean booked = false;      // renters: this home was booked and paid by them
+        public String homeHref = "";        // renters: where to open that home
+        public String avatar = "";          // secure photo address of the applicant, empty when none
 
         public Row(String title, String applicant, boolean verified, String status,
                    String statusClass, String submitted, String reason) {
