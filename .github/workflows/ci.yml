@@ -1,0 +1,32 @@
+name: Website CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: sbt
+
+      - uses: sbt/setup-sbt@v1
+
+      # conf/application.conf is not committed, so build from the example.
+      - name: Create the local config from the example
+        run: cp conf/application.conf.example conf/application.conf
+
+      # Compile only for now. The existing test needs a running app and the
+      # test libraries are not declared in build.sbt yet.
+      - name: Compile
+        run: sbt -batch compile
